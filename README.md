@@ -12,7 +12,6 @@ Packages that nixpkgs doesn't have, or has too old, for `x86_64-linux` and
 | `cockatrice` | Virtual tabletop for card games, tracking stable releases |
 | `colibri` | Streaming inference engine for MoE models (CPU by default, `rocmSupport`/`vulkanSupport` overrides) |
 | `cpa-prometheus` | CLIProxyAPI plugin exporting Prometheus metrics |
-| `rea-agents` | Reverse-engineering CLI and MCP server |
 | `rhystic-tracker` | MTG Arena match tracker |
 | `steamlink` | Valve Steam Link client, aarch64 only |
 | `t3code`, `t3code-desktop` | T3 Code server/CLI and desktop app, from upstream nightlies |
