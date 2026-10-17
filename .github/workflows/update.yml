@@ -1,0 +1,97 @@
+name: update
+
+# Most upstreams here have no feed we could subscribe to, and delta/t3code cut
+# nightlies, so poll.
+on:
+  schedule:
+    - cron: "23 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: update
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.bump.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@main
+        with:
+          # Anonymous api.github.com is 60 requests/hour per IP, shared by every
+          # job on the runner's egress IP; nix-update and flake fetches blow
+          # through that.
+          extra-conf: access-tokens = github.com=${{ github.token }}
+      - id: bump
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          status=0
+          ./ci/bump.sh bumps || status=$?
+          if compgen -G 'bumps/*.patch' >/dev/null; then
+            echo changed=true >>"$GITHUB_OUTPUT"
+          else
+            echo changed=false >>"$GITHUB_OUTPUT"
+          fi
+          exit $status
+      - if: always() && steps.bump.outputs.changed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: bumps
+          path: bumps
+
+  # Build every bump on each arch. A failed updater above doesn't stop the
+  # packages that did bump from landing.
+  verify:
+    needs: bump
+    if: always() && needs.bump.outputs.changed == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: bumps
+          path: bumps
+      - uses: DeterminateSystems/nix-installer-action@main
+        with:
+          extra-conf: access-tokens = github.com=${{ github.token }}
+      # Pushing here means each commit below lands with its build already cached.
+      - uses: cachix/cachix-action@v15
+        with:
+          name: cramt
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+      - run: ./ci/verify.sh bumps results
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: results-${{ matrix.runner }}
+          path: results
+
+  commit:
+    needs: [bump, verify]
+    if: always() && needs.bump.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: bumps
+          path: bumps
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: results-*
+          path: results
+          merge-multiple: true
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          ./ci/commit.sh bumps results
+          git push

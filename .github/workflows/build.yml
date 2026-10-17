@@ -1,0 +1,31 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@main
+        with:
+          extra-conf: access-tokens = github.com=${{ github.token }}
+      - uses: cachix/cachix-action@v15
+        with:
+          name: cramt
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+      # Everything this system can build; the flake already leaves out what it
+      # can't (steamlink on x86).
+      - run: |
+          system=$(nix eval --raw --impure --expr builtins.currentSystem)
+          nix eval --json ".#packages.$system" --apply builtins.attrNames |
+            jq -r --arg s "$system" '.[] | ".#packages.\($s).\(.)"' |
+            xargs nix build -L --no-link --keep-going
