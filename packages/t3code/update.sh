@@ -59,5 +59,25 @@ if [ "$spdx" != "$(jq -er .spdx.rev "$sources")" ]; then
   resolve .spdx.hash t3code.spdxLicenses
 fi
 
+# The preview browser pin is upstream's own: version plus each zip's sha256,
+# which fetchurl takes verbatim, so there is nothing to resolve.
+browser=$(curl -fsSL "https://raw.githubusercontent.com/$repo/v$latest/apps/server/src/preview/PreviewBrowser.ts")
+browser_pin() {
+  awk -v key="$1" '
+    $0 ~ "^  \"?" key "\"?: \\{" { found = 1 }
+    found && /sha256:/ { gsub(/[^0-9a-f]/, "", $2); print $2; exit }
+  ' <<<"$browser"
+}
+set_field .headlessShell.version "$(sed -n 's/^const VERSION = "\(.*\)";/\1/p' <<<"$browser")"
+for platform in linux64 linux-arm64; do
+  sha=$(browser_pin "$platform")
+  if [ -z "$sha" ]; then
+    echo "could not read the $platform headless shell sha256" >&2
+    exit 1
+  fi
+  set_field ".headlessShell[\"$platform\"]" "$sha"
+done
+echo "  .headlessShell: $(jq -c .headlessShell "$sources")"
+
 resolve .pnpmDepsHash t3code.pnpmDeps
 resolve .cargoHash t3code.resourceMonitor.cargoDeps

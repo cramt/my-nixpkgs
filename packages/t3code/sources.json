@@ -6,5 +6,10 @@
   "spdx": {
     "rev": "c4a7237ec8f4654e867546f9f409749300f1bf4c",
     "hash": "sha256-DnrdJ13M8Vf8Dq8qKlO7Ad5jXa8L9YU9PBlpp7B9BoI="
+  },
+  "headlessShell": {
+    "version": "154.0.8037.92",
+    "linux64": "636aa5c79f2693632e9921b8bbb050038ba11672e02346c06c20f991aed096f9",
+    "linux-arm64": "0ed0e47d9e9f639197f508d62ada09e5c6b4c4c60edab3160a9312a733091df6"
   }
 }

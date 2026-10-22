@@ -34,6 +34,20 @@
   makeDesktopItem,
   rustPlatform,
   versionCheckHook,
+  fetchurl,
+  unzip,
+  alsa-lib,
+  at-spi2-atk,
+  at-spi2-core,
+  dbus,
+  expat,
+  glib,
+  libgbm,
+  libxkbcommon,
+  nspr,
+  nss,
+  udev,
+  xorg,
 }: let
   sources = lib.importJSON ./sources.json;
   inherit (sources) version;
@@ -66,6 +80,58 @@
     # inspects the test process's own RSS via procfs, 0 on some builders
     checkFlags = ["--skip=tests::loads_details_when_an_existing_process_becomes_selected"];
     inherit (sources) cargoHash;
+  };
+
+  # The preview browser. Upstream downloads a pinned Chrome for Testing
+  # headless shell into ~/.t3 on first use, a generic-linux binary that can't
+  # find its libraries on NixOS. We fetch the same pin and patch it here
+  # (postPatch points the server at it). update.sh copies the pin from
+  # PreviewBrowser.ts, and postPatch fails the build if the two disagree.
+  chromePlatform =
+    {
+      x86_64-linux = "linux64";
+      aarch64-linux = "linux-arm64";
+    }
+    .${
+      stdenv.hostPlatform.system
+    };
+  headlessShell = stdenv.mkDerivation {
+    pname = "chrome-headless-shell";
+    inherit (sources.headlessShell) version;
+    # fetchurl, not fetchzip, so upstream's zip sha256 is usable as-is
+    src = fetchurl {
+      url = "https://storage.googleapis.com/chrome-for-testing-public/${sources.headlessShell.version}/${chromePlatform}/chrome-headless-shell-${chromePlatform}.zip";
+      sha256 = sources.headlessShell.${chromePlatform};
+    };
+    nativeBuildInputs = [
+      autoPatchelfHook
+      unzip
+    ];
+    buildInputs = [
+      alsa-lib
+      at-spi2-atk
+      at-spi2-core
+      dbus
+      expat
+      glib
+      libgbm
+      libxkbcommon
+      nspr
+      nss
+      stdenv.cc.cc.lib
+      udev
+      xorg.libX11
+      xorg.libXcomposite
+      xorg.libXdamage
+      xorg.libXext
+      xorg.libXfixes
+      xorg.libXrandr
+      xorg.libxcb
+    ];
+    installPhase = ''
+      mkdir -p $out/libexec
+      cp -r . $out/libexec/chrome-headless-shell
+    '';
   };
 
   platformKey =
@@ -178,6 +244,19 @@ in
           'config.mode !== "web" || config.devUrl === undefined ||' \
           'config.mode !== "web" ||'
 
+      # Serve the preview browser from the store instead of downloading it
+      # into ~/.t3 (see headlessShell). The installed-check runs before any
+      # download, so it always hits and the installer never starts.
+      browserPin=$(sed -n 's/^const VERSION = "\(.*\)";/\1/p' apps/server/src/preview/PreviewBrowser.ts)
+      if [[ "$browserPin" != "${headlessShell.version}" ]]; then
+        echo "error: upstream pins chrome-headless-shell $browserPin, rerun update.sh" >&2
+        exit 1
+      fi
+      substituteInPlace apps/server/src/preview/PreviewBrowser.ts \
+        --replace-fail \
+          'const executable = path.join(installRoot, release.version, executableName);' \
+          'const executable = "${headlessShell}/libexec/chrome-headless-shell/chrome-headless-shell";'
+
       spdxRev=$(sed -n 's/^const SPDX_LICENSE_LIST_REVISION = "\(.*\)";/\1/p' scripts/lib/third-party-licenses.ts)
       if [[ "$spdxRev" != "${spdxLicenses.rev}" ]]; then
         echo "error: upstream pins SPDX license-list-data $spdxRev, rerun update.sh" >&2
@@ -284,7 +363,7 @@ in
     versionCheckProgramArg = ["--version"];
 
     passthru = {
-      inherit appName resourceMonitor spdxLicenses;
+      inherit appName headlessShell resourceMonitor spdxLicenses;
     };
 
     meta = {
