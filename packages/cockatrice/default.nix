@@ -19,13 +19,13 @@ stdenv.mkDerivation (finalAttrs: {
   # a beta streak there is no Release in the window and the bump errors out
   # with nothing to match. That's a red update run, not a broken package; it
   # clears itself once upstream cuts the next Release.
-  version = "2026-10-10-Release-3.1.1";
+  version = "2026-10-25-Release-3.1.2";
 
   src = fetchFromGitHub {
     owner = "Cockatrice";
     repo = "Cockatrice";
     tag = finalAttrs.version;
-    hash = "sha256-Qr5f21SmGXqRxKsT/K47JBBz3X6skr9aNwTXITJA/X0=";
+    hash = "sha256-qrYq+jvhBbpTjT7KT5is7wnRVBJ8eaPYCUZLnPtP3l4=";
   };
 
   nativeBuildInputs = [
