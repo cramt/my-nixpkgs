@@ -47,7 +47,7 @@
         then let
           script = pkgs.writeShellApplication {
             name = "update-${name}";
-            runtimeInputs = [pkgs.curl pkgs.git pkgs.gnugrep pkgs.jq pkgs.nix];
+            runtimeInputs = [pkgs.curl pkgs.git pkgs.gnugrep pkgs.jq pkgs.nix pkgs.nodejs_24];
             text = builtins.readFile ./packages/${name}/update.sh;
           };
         in "${lib.getExe script} packages/${name}/sources.json"

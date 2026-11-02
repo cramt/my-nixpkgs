@@ -16,6 +16,7 @@
 {
   lib,
   stdenv,
+  callPackage,
   fetchFromGitHub,
   fetchPnpmDeps,
   pnpm_11,
@@ -364,6 +365,7 @@ in
 
     passthru = {
       inherit appName headlessShell resourceMonitor spdxLicenses;
+      deviceTools = callPackage ./device-tools.nix {inherit src;};
     };
 
     meta = {

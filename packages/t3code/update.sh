@@ -81,3 +81,20 @@ echo "  .headlessShell: $(jq -c .headlessShell "$sources")"
 
 resolve .pnpmDepsHash t3code.pnpmDeps
 resolve .cargoHash t3code.resourceMonitor.cargoDeps
+
+# The Device panel's npm tools (device-tools.nix) are pinned by
+# deviceToolVersions.json at the tag. Their lockfiles are regenerated only when
+# a pin moves, so a bump that doesn't touch them leaves them byte-identical.
+tools_dir=$(dirname "$sources")/device-tools
+pins=$(curl -fsSL "https://raw.githubusercontent.com/$repo/v$latest/apps/server/src/device/deviceToolVersions.json")
+for name in $(jq -r 'keys[]' <<<"$pins"); do
+  want=$(jq -er --arg n "$name" '.[$n]' <<<"$pins")
+  dir=$tools_dir/$name
+  have=$(jq -r --arg n "$name" '.dependencies[$n] // ""' "$dir/package.json" 2>/dev/null || true)
+  [ "$have" = "$want" ] && continue
+  echo "  device-tools $name: ${have:-none} -> $want"
+  mkdir -p "$dir"
+  jq -n --arg n "$name" --arg v "$want" '{private: true, dependencies: {($n): $v}}' >"$dir/package.json"
+  rm -f "$dir/package-lock.json"
+  (cd "$dir" && npm install --package-lock-only --ignore-scripts --no-fund --no-audit >/dev/null)
+done
