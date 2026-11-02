@@ -15,7 +15,7 @@ Packages that nixpkgs doesn't have, or has too old, for `x86_64-linux` and
 | `fluxer` | Fluxer chat desktop app, from the upstream AppImage (x86_64) |
 | `rhystic-tracker` | MTG Arena match tracker |
 | `steamlink` | Valve Steam Link client, aarch64 only |
-| `t3code`, `t3code-desktop` | T3 Code server/CLI and desktop app, from upstream nightlies |
+| `t3code`, `t3code-desktop`, `t3code-device-tools` | T3 Code server/CLI, desktop app, and the Device panel's npm tools, from upstream nightlies |
 | `zed-delta` | Zed's Delta agent (not git-delta, so not `delta`) |
 
 `zed-delta` and `steamlink` are unfree. Delta's license is Zed's
