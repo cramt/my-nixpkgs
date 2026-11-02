@@ -1,0 +1,4 @@
+{
+  "private": true,
+  "dependencies": { "simlock": "0.5.0" }
+}
