@@ -92,7 +92,9 @@ async function issueSession(spec: Spec): Promise<Session> {
     "--ttl", "10m",
     "--label", "t3code-declare",
     "--json",
-  ]);
+  ]).catch((err: { stderr?: string; message: string }) => {
+    throw new Error(`t3 auth session issue failed: ${err.stderr?.trim() || err.message}`);
+  });
   const issued = JSON.parse(stdout) as { token?: string; sessionId?: string };
   if (!issued.token || !issued.sessionId) throw new Error(`t3 auth session issue gave no token: ${stdout}`);
   return { token: issued.token, sessionId: issued.sessionId };
@@ -107,15 +109,19 @@ async function revokeSession(spec: Spec, session: Session): Promise<void> {
 async function waitForServer(spec: Spec): Promise<void> {
   const deadline = Date.now() + spec.readyTimeoutSeconds * 1000;
   for (;;) {
+    let why: string;
     try {
-      // Any answer, 401 included, means the HTTP server is up.
+      // 401 means up. A 5xx means still starting: it answers 503 while it
+      // migrates the database, and `t3 auth session issue` fails until then.
       const res = await fetch(new URL("/api/projects", spec.origin));
       await res.body?.cancel();
-      return;
+      if (res.status < 500) return;
+      why = `HTTP ${res.status}`;
     } catch (err) {
-      if (Date.now() > deadline) throw new Error(`server at ${spec.origin} not reachable: ${String(err)}`);
-      await new Promise((r) => setTimeout(r, 1000));
+      why = String(err);
     }
+    if (Date.now() > deadline) throw new Error(`server at ${spec.origin} not ready: ${why}`);
+    await new Promise((r) => setTimeout(r, 1000));
   }
 }
 
