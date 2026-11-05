@@ -17,6 +17,7 @@ Packages that nixpkgs doesn't have, or has too old, for `x86_64-linux` and
 | `simlock` | Leases simulators, emulators and phones to coding agents (worker + gateway) |
 | `steamlink` | Valve Steam Link client, aarch64 only |
 | `t3code`, `t3code-desktop`, `t3code-device-tools` | T3 Code server/CLI, desktop app, and the Device panel's npm tools, from upstream nightlies |
+| `t3code-declare` | Applies declared projects and scheduled tasks to a running T3 Code server (used by `nixosModules.t3code`) |
 | `zed-delta` | Zed's Delta agent (not git-delta, so not `delta`) |
 
 `zed-delta` and `steamlink` are unfree. Delta's license is Zed's
@@ -41,6 +42,45 @@ the release from delta.dev, nothing is redistributed here.
 The overlay builds against your nixpkgs, so with `follows` the store paths
 only match the cache when your nixpkgs pin matches this repo's. Or run one
 straight from here: `nix run github:cramt/my-nixpkgs#t3code`.
+
+## NixOS module: `nixosModules.t3code`
+
+Runs the T3 Code server as a `systemd --user` unit of a login user, configured
+from Nix as far as upstream allows:
+
+```nix
+{
+  imports = [ inputs.my-nixpkgs.nixosModules.t3code ];
+  services.t3code = {
+    enable = true;
+    user = "alice";
+    openFirewall = true;
+    sharedSecretFile = "/run/secrets/t3code";   # fixed pairing secret
+    providers.codex = false;
+    settings.continueThreadsAfterServerUpdate = true;
+    policy.settings.defaultRuntimeMode = { value = "auto-accept-edits"; locked = false; };
+    projects.website.workspaceRoot = "/home/alice/website";
+    scheduledTasks.standup = {
+      project = "/home/alice/website";
+      prompt = "Summarise yesterday's commits.";
+      schedule.daily = { timeOfDay = "09:00"; weekdays = [ 1 2 3 4 5 ]; };
+      model.model = "claude-sonnet-5-5";
+    };
+  };
+}
+```
+
+- `settings` and `secretSettings` (dot path to a file) are merged into
+  settings.json on every start. The rest of the file stays the UI's.
+- `policy` writes `/etc/t3code/policy.json`, upstream's managed policy, and
+  checks it with `t3 policy check` at build time.
+- `projects` and `scheduledTasks` are applied by `t3code-declare` after every
+  start. Nix owns only what it declares: anything made in the UI is left
+  alone. A folder you already registered is taken over in place. Dropping a
+  declaration deletes what it created (a project with threads is archived).
+
+`nix build .#checks.x86_64-linux.t3code-module` evaluates a sample host that
+uses every option.
 
 ## Adding a package
 

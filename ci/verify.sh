@@ -10,6 +10,9 @@ results=$2
 mkdir -p "$results"
 system=$(nix eval --raw --impure --expr builtins.currentSystem)
 available=$(nix eval --json ".#packages.$system" --apply builtins.attrNames)
+# A package's checks are the ones named after it (t3code-module for t3code):
+# a bump that breaks nixosModules.t3code fails like a bump that breaks the build.
+checks=$(nix eval --json ".#checks.$system" --apply builtins.attrNames)
 
 status=0
 for patch in "$bumps"/*.patch; do
@@ -18,7 +21,8 @@ for patch in "$bumps"/*.patch; do
   git apply "$patch"
   if ! jq -e --arg n "$name" 'index($n)' <<<"$available" >/dev/null; then
     result=skip
-  elif nix build -L --no-link ".#packages.$system.$name"; then
+  elif nix build -L --no-link ".#packages.$system.$name" \
+    $(jq -r --arg n "$name" --arg s "$system" '.[] | select(startswith($n + "-")) | ".#checks.\($s).\(.)"' <<<"$checks"); then
     result=ok
   else
     result=fail

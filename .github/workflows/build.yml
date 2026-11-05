@@ -23,9 +23,11 @@ jobs:
           name: cramt
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
       # Everything this system can build; the flake already leaves out what it
-      # can't (steamlink on x86).
+      # can't (steamlink on x86). Checks too, so a package bump that breaks
+      # nixosModules.t3code (a policy key upstream dropped) fails here.
       - run: |
           system=$(nix eval --raw --impure --expr builtins.currentSystem)
-          nix eval --json ".#packages.$system" --apply builtins.attrNames |
-            jq -r --arg s "$system" '.[] | ".#packages.\($s).\(.)"' |
-            xargs nix build -L --no-link --keep-going
+          for set in packages checks; do
+            nix eval --json ".#$set.$system" --apply builtins.attrNames |
+              jq -r --arg s "$system" --arg set "$set" '.[] | ".#\($set).\($s).\(.)"'
+          done | xargs nix build -L --no-link --keep-going

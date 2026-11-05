@@ -88,6 +88,80 @@
       };
     });
 
+    nixosModules.t3code = import ./modules/t3code.nix self;
+
+    # A sample host using every part of the t3code module, evaluated against
+    # this nixpkgs: the build runs `t3 policy check` on the policy and renders
+    # the seed script, the reconciler spec and both user units.
+    checks = lib.genAttrs systems (system: {
+      t3code-module = let
+        host = lib.nixosSystem {
+          inherit system;
+          modules = [
+            self.nixosModules.t3code
+            {
+              boot.isContainer = true;
+              system.stateVersion = "26.05";
+              users.users.alice.isNormalUser = true;
+              services.t3code = {
+                enable = true;
+                user = "alice";
+                sharedSecretFile = "/run/secrets/t3code";
+                providers.codex = false;
+                customModels.claudeAgent = [{slug = "example/model";}];
+                settings.continueThreadsAfterServerUpdate = true;
+                secretSettings."usageLimitSources.cliproxy.managementKey" = "/run/secrets/cliproxy";
+                policy.settings.defaultRuntimeMode = {
+                  value = "auto-accept-edits";
+                  locked = false;
+                };
+                devices = {
+                  enable = true;
+                  simlock = {
+                    enable = true;
+                    hosts.lab = {
+                      gatewayUrl = "https://lab.example:4700";
+                      agentTokenFile = "/run/secrets/simlock";
+                    };
+                  };
+                };
+                projects.website = {
+                  workspaceRoot = "/home/alice/website";
+                  settings.autoPull = true;
+                };
+                scheduledTasks = {
+                  morning = {
+                    prompt = "Summarise yesterday's commits.";
+                    project = "/home/alice/website";
+                    schedule.daily = {
+                      timeOfDay = "07:30";
+                      weekdays = [1 2 3 4 5];
+                    };
+                    model.model = "claude-sonnet-5-5";
+                  };
+                  hourly = {
+                    prompt = "Check the deploy.";
+                    project = "/home/alice/website";
+                    schedule.interval.minutes = 60;
+                    model.model = "claude-haiku-5-5";
+                    workspace.worktree.baseRef = "main";
+                  };
+                };
+              };
+            }
+          ];
+        };
+        inherit (host) config;
+        pkgs = nixpkgs.legacyPackages.${system};
+      in
+        assert lib.assertMsg (builtins.all (a: a.assertion) config.assertions) "t3code-module: an assertion failed";
+          pkgs.linkFarm "t3code-module-check" {
+            "policy.json" = config.environment.etc."t3code/policy.json".source;
+            "t3code.service" = config.systemd.user.units."t3code.service".unit;
+            "t3code-declare.service" = config.systemd.user.units."t3code-declare.service".unit;
+          };
+    });
+
     # Bare `nix fmt` passes no paths, and alejandra then waits on stdin.
     formatter =
       forAllSystems (pkgs:
