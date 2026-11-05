@@ -8,7 +8,13 @@
     nixpkgs,
   }: let
     lib = nixpkgs.lib;
-    systems = ["x86_64-linux" "aarch64-linux"];
+    # Linux is home. Darwin is opt-in per package: most of these leave
+    # meta.platforms unset or have never been near a Mac, and building them all
+    # on the macOS CI leg would turn every bump red. Only packages that name a
+    # darwin platform themselves (batt) show up there.
+    linuxSystems = ["x86_64-linux" "aarch64-linux"];
+    systems = linuxSystems ++ ["aarch64-darwin"];
+    optedIntoDarwin = pkg: builtins.any (lib.hasSuffix "-darwin") (pkg.meta.platforms or []);
 
     # Every packages/<name>/ is pkgs.<name>; dropping the folder in is the whole
     # registration. A folder named after a nixpkgs attribute shadows it.
@@ -28,13 +34,17 @@
     overlays.default = final: _prev:
       lib.genAttrs names (name: final.callPackage ./packages/${name} {});
 
-    packages = forAllSystems (pkgs:
-      lib.filterAttrs (_: lib.meta.availableOn pkgs.stdenv.hostPlatform)
-      (lib.genAttrs names (name: pkgs.${name}))
-      # rhystic-tracker's UnityPy stack, none of it in nixpkgs. Not in the
-      # overlay (only rhystic-tracker's wrapper wants it), but each one is a
-      # package here so it gets an updater like everything else.
-      // import ./packages/rhystic-tracker/python {inherit (pkgs) python3Packages;});
+    packages = forAllSystems (pkgs: let
+      available = lib.filterAttrs (_: lib.meta.availableOn pkgs.stdenv.hostPlatform) (lib.genAttrs names (name: pkgs.${name}));
+    in
+      if pkgs.stdenv.hostPlatform.isDarwin
+      then lib.filterAttrs (_: optedIntoDarwin) available
+      else
+        available
+        # rhystic-tracker's UnityPy stack, none of it in nixpkgs. Not in the
+        # overlay (only rhystic-tracker's wrapper wants it), but each one is a
+        # package here so it gets an updater like everything else.
+        // import ./packages/rhystic-tracker/python {inherit (pkgs) python3Packages;});
 
     # `nix run .#update` bumps every package that has an updater,
     # `nix run .#update -- <name>...` just those, `--list` prints their names.
@@ -93,74 +103,76 @@
     # A sample host using every part of the t3code module, evaluated against
     # this nixpkgs: the build runs `t3 policy check` on the policy and renders
     # the seed script, the reconciler spec and both user units.
-    checks = lib.genAttrs systems (system: {
-      t3code-module = let
-        host = lib.nixosSystem {
-          inherit system;
-          modules = [
-            self.nixosModules.t3code
-            {
-              boot.isContainer = true;
-              system.stateVersion = "26.05";
-              users.users.alice.isNormalUser = true;
-              services.t3code = {
-                enable = true;
-                user = "alice";
-                sharedSecretFile = "/run/secrets/t3code";
-                providers.codex = false;
-                customModels.claudeAgent = [{slug = "example/model";}];
-                settings.continueThreadsAfterServerUpdate = true;
-                secretSettings."usageLimitSources.cliproxy.managementKey" = "/run/secrets/cliproxy";
-                policy.settings.defaultRuntimeMode = {
-                  value = "auto-accept-edits";
-                  locked = false;
-                };
-                devices = {
+    # Darwin gets an empty set rather than none, since CI looks up checks.<system>.
+    checks = lib.genAttrs systems (system:
+      lib.optionalAttrs (lib.elem system linuxSystems) {
+        t3code-module = let
+          host = lib.nixosSystem {
+            inherit system;
+            modules = [
+              self.nixosModules.t3code
+              {
+                boot.isContainer = true;
+                system.stateVersion = "26.05";
+                users.users.alice.isNormalUser = true;
+                services.t3code = {
                   enable = true;
-                  simlock = {
+                  user = "alice";
+                  sharedSecretFile = "/run/secrets/t3code";
+                  providers.codex = false;
+                  customModels.claudeAgent = [{slug = "example/model";}];
+                  settings.continueThreadsAfterServerUpdate = true;
+                  secretSettings."usageLimitSources.cliproxy.managementKey" = "/run/secrets/cliproxy";
+                  policy.settings.defaultRuntimeMode = {
+                    value = "auto-accept-edits";
+                    locked = false;
+                  };
+                  devices = {
                     enable = true;
-                    hosts.lab = {
-                      gatewayUrl = "https://lab.example:4700";
-                      agentTokenFile = "/run/secrets/simlock";
+                    simlock = {
+                      enable = true;
+                      hosts.lab = {
+                        gatewayUrl = "https://lab.example:4700";
+                        agentTokenFile = "/run/secrets/simlock";
+                      };
+                    };
+                  };
+                  projects.website = {
+                    workspaceRoot = "/home/alice/website";
+                    settings.autoPull = true;
+                  };
+                  scheduledTasks = {
+                    morning = {
+                      prompt = "Summarise yesterday's commits.";
+                      project = "/home/alice/website";
+                      schedule.daily = {
+                        timeOfDay = "07:30";
+                        weekdays = [1 2 3 4 5];
+                      };
+                      model.model = "claude-sonnet-5-5";
+                    };
+                    hourly = {
+                      prompt = "Check the deploy.";
+                      project = "/home/alice/website";
+                      schedule.interval.minutes = 60;
+                      model.model = "claude-haiku-5-5";
+                      workspace.worktree.baseRef = "main";
                     };
                   };
                 };
-                projects.website = {
-                  workspaceRoot = "/home/alice/website";
-                  settings.autoPull = true;
-                };
-                scheduledTasks = {
-                  morning = {
-                    prompt = "Summarise yesterday's commits.";
-                    project = "/home/alice/website";
-                    schedule.daily = {
-                      timeOfDay = "07:30";
-                      weekdays = [1 2 3 4 5];
-                    };
-                    model.model = "claude-sonnet-5-5";
-                  };
-                  hourly = {
-                    prompt = "Check the deploy.";
-                    project = "/home/alice/website";
-                    schedule.interval.minutes = 60;
-                    model.model = "claude-haiku-5-5";
-                    workspace.worktree.baseRef = "main";
-                  };
-                };
-              };
-            }
-          ];
-        };
-        inherit (host) config;
-        pkgs = nixpkgs.legacyPackages.${system};
-      in
-        assert lib.assertMsg (builtins.all (a: a.assertion) config.assertions) "t3code-module: an assertion failed";
-          pkgs.linkFarm "t3code-module-check" {
-            "policy.json" = config.environment.etc."t3code/policy.json".source;
-            "t3code.service" = config.systemd.user.units."t3code.service".unit;
-            "t3code-declare.service" = config.systemd.user.units."t3code-declare.service".unit;
+              }
+            ];
           };
-    });
+          inherit (host) config;
+          pkgs = nixpkgs.legacyPackages.${system};
+        in
+          assert lib.assertMsg (builtins.all (a: a.assertion) config.assertions) "t3code-module: an assertion failed";
+            pkgs.linkFarm "t3code-module-check" {
+              "policy.json" = config.environment.etc."t3code/policy.json".source;
+              "t3code.service" = config.systemd.user.units."t3code.service".unit;
+              "t3code-declare.service" = config.systemd.user.units."t3code-declare.service".unit;
+            };
+      });
 
     # Bare `nix fmt` passes no paths, and alejandra then waits on stdin.
     formatter =

@@ -11,7 +11,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runner: [ubuntu-latest, ubuntu-24.04-arm]
+        runner: [ubuntu-latest, ubuntu-24.04-arm, macos-latest]
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
@@ -23,8 +23,9 @@ jobs:
           name: cramt
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
       # Everything this system can build; the flake already leaves out what it
-      # can't (steamlink on x86). Checks too, so a package bump that breaks
-      # nixosModules.t3code (a policy key upstream dropped) fails here.
+      # can't (steamlink on x86, everything but the darwin opt-ins on macOS).
+      # Checks too, so a package bump that breaks nixosModules.t3code (a policy
+      # key upstream dropped) fails here.
       - run: |
           system=$(nix eval --raw --impure --expr builtins.currentSystem)
           for set in packages checks; do

@@ -12,10 +12,14 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # One leg per platform family. macOS only bumps what Linux can't evaluate
+  # (darwin-only packages like batt), see ci/bump.sh.
   bump:
-    runs-on: ubuntu-latest
-    outputs:
-      changed: ${{ steps.bump.outputs.changed }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
       - uses: DeterminateSystems/nix-installer-action@main
@@ -27,30 +31,57 @@ jobs:
       - id: bump
         env:
           GITHUB_TOKEN: ${{ github.token }}
+        # Nix's bash and jq, not the runner's: macOS ships bash 3.2
         run: |
           status=0
-          ./ci/bump.sh bumps || status=$?
+          nix shell nixpkgs#bash nixpkgs#jq --command ./ci/bump.sh bumps || status=$?
           if compgen -G 'bumps/*.patch' >/dev/null; then
             echo changed=true >>"$GITHUB_OUTPUT"
-          else
-            echo changed=false >>"$GITHUB_OUTPUT"
           fi
           exit $status
       - if: always() && steps.bump.outputs.changed == 'true'
         uses: actions/upload-artifact@v4
         with:
+          name: bumps-${{ matrix.runner }}
+          path: bumps
+
+  # Folds the legs' patches into one `bumps` artifact for verify and commit.
+  gate:
+    needs: bump
+    if: always()
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.merge.outputs.changed }}
+    steps:
+      # Matching nothing just means no leg bumped anything
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          pattern: bumps-*
+          path: bumps
+          merge-multiple: true
+      - id: merge
+        run: |
+          if compgen -G 'bumps/*.patch' >/dev/null; then
+            echo changed=true >>"$GITHUB_OUTPUT"
+          else
+            echo changed=false >>"$GITHUB_OUTPUT"
+          fi
+      - if: steps.merge.outputs.changed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
           name: bumps
           path: bumps
 
-  # Build every bump on each arch. A failed updater above doesn't stop the
+  # Build every bump on each system. A failed updater above doesn't stop the
   # packages that did bump from landing.
   verify:
-    needs: bump
-    if: always() && needs.bump.outputs.changed == 'true'
+    needs: gate
+    if: always() && needs.gate.outputs.changed == 'true'
     strategy:
       fail-fast: false
       matrix:
-        runner: [ubuntu-latest, ubuntu-24.04-arm]
+        runner: [ubuntu-latest, ubuntu-24.04-arm, macos-latest]
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
@@ -66,7 +97,7 @@ jobs:
         with:
           name: cramt
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
-      - run: ./ci/verify.sh bumps results
+      - run: nix shell nixpkgs#bash nixpkgs#jq --command ./ci/verify.sh bumps results
       - if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -74,8 +105,8 @@ jobs:
           path: results
 
   commit:
-    needs: [bump, verify]
-    if: always() && needs.bump.outputs.changed == 'true'
+    needs: [gate, verify]
+    if: always() && needs.gate.outputs.changed == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write

@@ -12,8 +12,19 @@ system=$(nix eval --raw --impure --expr builtins.currentSystem)
 
 version() { nix eval --raw ".#packages.$system.$1.version" 2>/dev/null || echo "?"; }
 
+# The Linux leg bumps everything it can see. Any other leg only bumps what Linux
+# can't (darwin-only packages), so no package gets two competing patches.
+if [ "$system" = x86_64-linux ]; then
+  owned_elsewhere='[]'
+else
+  owned_elsewhere=$(nix eval --json .#packages.x86_64-linux --apply builtins.attrNames)
+fi
+
 failed=()
 for name in $(nix run .#update -- --list | jq -r '.[]'); do
+  if jq -e --arg n "$name" 'index($n)' <<<"$owned_elsewhere" >/dev/null; then
+    continue
+  fi
   before=$(version "$name")
   if ! nix run .#update -- "$name"; then
     failed+=("$name")

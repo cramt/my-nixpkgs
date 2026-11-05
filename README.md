@@ -1,13 +1,14 @@
 # my-nixpkgs
 
 Packages that nixpkgs doesn't have, or has too old, for `x86_64-linux` and
-`aarch64-linux`. CI keeps them current and pushes builds to
-[cramt.cachix.org](https://cramt.cachix.org).
+`aarch64-linux`, plus a few for `aarch64-darwin`. CI keeps them current and
+pushes builds to [cramt.cachix.org](https://cramt.cachix.org).
 
 | Package | What it is |
 |---|---|
 | `agent-browser` | Vercel's browser-automation CLI for AI agents |
 | `agentsview` | Local session analytics for coding agents |
+| `batt` | Battery charge limiter daemon for Apple Silicon MacBooks (aarch64-darwin only) |
 | `cli-proxy-api-panel` | CLIProxyAPI's web management panel |
 | `cockatrice` | Virtual tabletop for card games, tracking stable releases |
 | `colibri` | Streaming inference engine for MoE models (CPU by default, `rocmSupport`/`vulkanSupport` overrides) |
@@ -88,6 +89,10 @@ Drop `packages/<name>/default.nix` in. That makes it `pkgs.<name>` in the
 overlay and `packages.<system>.<name>` in the flake, on every system its
 `meta.platforms` allows. A folder named after a nixpkgs attribute shadows it.
 
+Darwin is opt-in. A package only shows up under `aarch64-darwin` (and gets
+built on the macOS CI leg) if its `meta.platforms` names a darwin system.
+Leaving `meta.platforms` unset keeps it Linux-only.
+
 For CI to keep it current, give it an updater:
 
 - `passthru.updateScript = nix-update-script { };` for anything
@@ -102,7 +107,9 @@ For CI to keep it current, give it an updater:
 ## How updates land
 
 Every hour `update.yml` runs each updater on its own, keeping one patch per
-package that moved. Each patch is then built on x86_64 and aarch64 against an
-otherwise clean tree. A bump is committed (one commit per package) only if it
-built on at least one of them and failed on neither. The rest wait for a
-later run, so one broken upstream release doesn't block the others.
+package that moved. Updaters run on Linux, except for darwin-only packages,
+which bump on macOS. Each patch is then built on x86_64-linux, aarch64-linux
+and aarch64-darwin against an otherwise clean tree. A bump is committed
+(one commit per package) only if it built on at least one of them and failed
+on neither. The rest wait for a later run, so one broken upstream release
+doesn't block the others.

@@ -8,7 +8,7 @@ results=$2
 
 # A verify leg that died before writing anything would otherwise read as "no
 # objections" and let a bump through on the other system's word alone.
-for system in x86_64-linux aarch64-linux; do
+for system in x86_64-linux aarch64-linux aarch64-darwin; do
   if [ ! -s "$results/$system" ]; then
     echo "::error::no verify results for $system, committing nothing"
     exit 1
