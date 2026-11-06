@@ -48,6 +48,7 @@
   nspr,
   nss,
   udev,
+  vulkan-loader,
   xorg,
 }: let
   sources = lib.importJSON ./sources.json;
@@ -346,6 +347,14 @@ in
     # prebuilt pty.node (https://github.com/numtide/llm-agents.nix/issues/10125).
     postFixup = ''
       autoPatchelf "$out/libexec/t3code/apps/server/node_modules/node-pty/prebuilds/${platformKey}"
+
+      # Dictation's GPU backend dlopens libggml-vulkan.so, which links
+      # libvulkan.so.1 by bare name. Without a runpath it fails to load and
+      # transcribe-cpp quietly drops to the CPU. The loader finds the driver's
+      # ICD under /run/opengl-driver on its own.
+      for lib in "$out"/libexec/t3code/apps/server/node_modules/.pnpm/@transcribe-cpp+*/node_modules/@transcribe-cpp/*/libggml-vulkan.so; do
+        [[ -e "$lib" ]] && patchelf --add-rpath ${lib.makeLibraryPath [vulkan-loader]} "$lib"
+      done
     '';
 
     postInstall = ''
