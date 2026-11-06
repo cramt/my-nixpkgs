@@ -7,6 +7,8 @@
 #    for every T3 Code on the host, the desktop app's included, checked by
 #    this build's own `t3 policy check` so a bad policy fails the build
 #  - the Device panel's npm tools, linked in from the store
+#  - dictation's speech models, pinned from upstream's catalog and linked in
+#    from the store instead of downloaded by the UI
 #  - projects and scheduled tasks, applied to the running server by
 #    t3code-declare after every start (see packages/t3code-declare)
 #
@@ -20,7 +22,11 @@ self: {
 }: let
   cfg = config.services.t3code;
   json = pkgs.formats.json {};
-  ours = self.overlays.default pkgs pkgs;
+  # A real extend, not `overlay pkgs pkgs`: the overlay's packages refer to
+  # each other (t3code-device-tools is t3code.deviceTools), and on a host
+  # that doesn't apply the overlay, callPackage would otherwise hand them
+  # nixpkgs' t3code.
+  ours = pkgs.extend self.overlays.default;
   t3 = lib.getExe' cfg.package "t3";
   stateDir = "${cfg.dataDir}/userdata";
   settingsFile = "${stateDir}/settings.json";
@@ -57,7 +63,11 @@ self: {
   simlockSecrets = lib.listToAttrs (lib.imap0 (i: h: lib.nameValuePair "simlockDeviceHosts.${toString i}.agentToken" h.agentTokenFile)
     (lib.attrValues simlockHosts));
 
-  declaredSettings = json.generate "t3code-settings.json" (lib.foldl' lib.recursiveUpdate {} [providerSettings simlockSettings cfg.settings]);
+  speechCatalog = cfg.package.speech or ours.t3code.speech;
+  speechModels = lib.optionals (cfg.speech.model != null) (map (id: speechCatalog.models.${id}) (lib.unique ([cfg.speech.model] ++ cfg.speech.extraModels)));
+  speechSettings = lib.optionalAttrs (cfg.speech.model != null) {speechModelId = cfg.speech.model;};
+
+  declaredSettings = json.generate "t3code-settings.json" (lib.foldl' lib.recursiveUpdate {} [providerSettings simlockSettings speechSettings cfg.settings]);
   allSecretSettings = simlockSecrets // cfg.secretSettings;
 
   seedSettings = pkgs.writeShellApplication {
@@ -267,6 +277,25 @@ in {
         wins, the rest of the file stays the UI's. Lists are replaced, not
         merged. For defaults the UI may change, or locks, use `policy`.
       '';
+    };
+
+    speech = {
+      model = lib.mkOption {
+        type = lib.types.nullOr (lib.types.enum (lib.attrNames speechCatalog.models));
+        default = null;
+        example = "handy-computer/parakeet-unified-en-0.6b-gguf";
+        description = ''
+          Catalog id of the dictation model this environment transcribes with.
+          It's fetched into the store, linked into the server's model folder
+          with Silero VAD, and selected (`speechModelId`). Null leaves models
+          to the UI, which downloads them into the data dir.
+        '';
+      };
+      extraModels = lib.mkOption {
+        type = lib.types.listOf (lib.types.enum (lib.attrNames speechCatalog.models));
+        default = [];
+        description = "More catalog models to link in, so switching in the UI needs no download.";
+      };
     };
 
     secretSettings = lib.mkOption {
@@ -635,6 +664,10 @@ in {
           assertion = lib.all (t: t.schedule ? interval -> t.schedule.interval.minutes >= 1) (lib.attrValues cfg.scheduledTasks);
           message = "services.t3code.scheduledTasks: intervals are at least a minute.";
         }
+        {
+          assertion = cfg.speech.extraModels != [] -> cfg.speech.model != null;
+          message = "services.t3code.speech.extraModels needs speech.model: with no model declared, models are the UI's.";
+        }
       ];
 
       users.users.${cfg.user}.linger = true;
@@ -647,6 +680,25 @@ in {
         group = config.users.users.${cfg.user}.group;
         mode = "0700";
       };
+
+      # Where the server's model store looks. It follows the links (stat, not
+      # lstat), hashes each file once against the catalog digest and records
+      # that in a .verified file beside it, so the folder stays user-owned.
+      # L+ replaces a copy the UI downloaded earlier.
+      systemd.tmpfiles.settings."10-t3code-speech" = lib.mkIf (speechModels != []) (let
+        owned.d = {
+          inherit (cfg) user;
+          group = config.users.users.${cfg.user}.group;
+          mode = "0700";
+        };
+        modelDir = "${stateDir}/speech/models";
+      in
+        {
+          ${stateDir} = owned;
+          "${stateDir}/speech" = owned;
+          ${modelDir} = owned;
+        }
+        // lib.listToAttrs (map (m: lib.nameValuePair "${modelDir}/${m.filename}" {"L+".argument = "${m}";}) (speechModels ++ [speechCatalog.vad])));
 
       networking.firewall.allowedTCPPorts = lib.mkIf cfg.openFirewall [cfg.port];
 

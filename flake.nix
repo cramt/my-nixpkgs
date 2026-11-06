@@ -137,6 +137,10 @@
                       };
                     };
                   };
+                  speech = {
+                    model = "handy-computer/parakeet-unified-en-0.6b-gguf";
+                    extraModels = ["handy-computer/moonshine-tiny-gguf"];
+                  };
                   projects.website = {
                     workspaceRoot = "/home/alice/website";
                     settings.autoPull = true;
@@ -167,6 +171,15 @@
           pkgs = nixpkgs.legacyPackages.${system};
         in
           assert lib.assertMsg (builtins.all (a: a.assertion) config.assertions) "t3code-module: an assertion failed";
+          # Checked by name, not built: building the links would download the models.
+          assert lib.assertMsg (let
+            links = lib.attrNames config.systemd.tmpfiles.settings."10-t3code-speech";
+          in
+            lib.all (f: lib.elem "/home/alice/.t3/userdata/speech/models/${f}" links) [
+              "parakeet-unified-en-0.6b-Q8_0.gguf"
+              "moonshine-tiny-Q8_0.gguf"
+              "silero-vad-v6.2-F32.gguf"
+            ]) "t3code-module: speech models aren't linked into the model folder";
             pkgs.linkFarm "t3code-module-check" {
               "policy.json" = config.environment.etc."t3code/policy.json".source;
               "t3code.service" = config.systemd.user.units."t3code.service".unit;

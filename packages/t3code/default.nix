@@ -375,6 +375,7 @@ in
     passthru = {
       inherit appName headlessShell resourceMonitor spdxLicenses;
       deviceTools = callPackage ./device-tools.nix {inherit src;};
+      speech = callPackage ./speech-models.nix {inherit src;};
     };
 
     meta = {

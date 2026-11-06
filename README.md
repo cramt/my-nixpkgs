@@ -59,6 +59,7 @@ from Nix as far as upstream allows:
     sharedSecretFile = "/run/secrets/t3code";   # fixed pairing secret
     providers.codex = false;
     settings.continueThreadsAfterServerUpdate = true;
+    speech.model = "handy-computer/parakeet-unified-en-0.6b-gguf";
     policy.settings.defaultRuntimeMode = { value = "auto-accept-edits"; locked = false; };
     projects.website.workspaceRoot = "/home/alice/website";
     scheduledTasks.standup = {
@@ -75,6 +76,13 @@ from Nix as far as upstream allows:
   settings.json on every start. The rest of the file stays the UI's.
 - `policy` writes `/etc/t3code/policy.json`, upstream's managed policy, and
   checks it with `t3 policy check` at build time.
+- `speech.model` (plus `speech.extraModels`) pins dictation models from
+  upstream's catalog: they're fetched into the store, linked into the
+  server's model folder with Silero VAD, and the first is selected. The
+  other server-side voice settings (`speechAcceleration`,
+  `speechModelUnloadTimeout`, `speechProjectCustomWords`) are plain
+  `settings`. Microphone, language and the per-device vocabulary are client
+  settings and stay in each client.
 - `projects` and `scheduledTasks` are applied by `t3code-declare` after every
   start. Nix owns only what it declares: anything made in the UI is left
   alone. A folder you already registered is taken over in place. Dropping a
