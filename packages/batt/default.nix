@@ -9,16 +9,16 @@
 # daemon and /etc/batt.json (re-zip/infra-office-servers' laptop.nix).
 buildGoModule (finalAttrs: {
   pname = "batt";
-  version = "0.9.0";
+  version = "0.10.0";
 
   src = fetchFromGitHub {
     owner = "charlie0129";
     repo = "batt";
     tag = "v${finalAttrs.version}";
-    hash = "sha256-qlBGIXNY/Su4XDqlBvT4JWHiL4+JEIL7NcBUjCLt678=";
+    hash = "sha256-B1NYASaMCI31PSwOS4kVOomvAO9Y+V0G1o6eC3He9YA=";
   };
 
-  vendorHash = "sha256-v3YSYAn+tL5ZfuPq8OD1QvDZKOWRD3T2ts2wPxuKMEc=";
+  vendorHash = "sha256-TOZHFQ1xlHmExeV2VYu7ex7M3p0J+jbmbrgzjPPomoY=";
 
   subPackages = ["cmd/batt"];
   # Same tag Homebrew builds with: drops `batt install`/`uninstall`, which would
