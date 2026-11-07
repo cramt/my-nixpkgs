@@ -91,7 +91,8 @@ from Nix as far as upstream allows:
   `linkedEnvironments.peers` links this server to other T3 Code machines with
   a pairing code file (the peer's `sharedSecretFile`). A user timer links a
   peer that isn't linked yet and relinks one whose 30-day link expires within
-  a week. Peer URLs must be https, or loopback/tailnet http: upstream won't
+  a week. A peer that's off is retried on the next run, not a failed unit.
+  Peer URLs must be https, or loopback/tailnet http: upstream won't
   send the credentials anywhere else.
 
 `nix build .#checks.x86_64-linux.t3code-module` evaluates a sample host that

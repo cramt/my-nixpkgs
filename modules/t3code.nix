@@ -182,6 +182,9 @@ self: {
   # declared access changed. Peers a link lists none of the declared
   # addresses for (UI-made links, dropped peers) are left alone.
   #
+  # A peer that's off doesn't fail the unit, so `systemctl --failed` stays
+  # about real refusals (pairing code, version, storage); the timer retries it.
+  #
   # The pairing code goes on t3's command line (it takes no file or env var),
   # so other users of the host can see it in /proc while a link runs.
   peers = cfg.linkedEnvironments.peers;
@@ -204,12 +207,19 @@ self: {
                   and (.expiresAt | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601) > $cutoff)
               ' <<<"$listed" >/dev/null; then
             echo ${lib.escapeShellArg "${name}: linked"}
-          elif ! { test -s ${lib.escapeShellArg p.pairingCodeFile} \
-              && t3 environment link --base-dir "$base" \
-                ${lib.escapeShellArgs ([(lib.head p.urls)] ++ lib.concatMap (u: ["--url" u]) (lib.tail p.urls))} \
-                --access ${lib.escapeShellArg p.access} \
-                --pairing-code "$(tr -d '\n' < ${lib.escapeShellArg p.pairingCodeFile})"; }; then
-            echo ${lib.escapeShellArg "${name}: link failed, retrying on the next run"}
+          elif ! test -s ${lib.escapeShellArg p.pairingCodeFile}; then
+            echo ${lib.escapeShellArg "${name}: ${p.pairingCodeFile} is missing or empty"}
+            failed=1
+          elif out=$(t3 environment link --base-dir "$base" \
+              ${lib.escapeShellArgs ([(lib.head p.urls)] ++ lib.concatMap (u: ["--url" u]) (lib.tail p.urls))} \
+              --access ${lib.escapeShellArg p.access} \
+              --pairing-code "$(tr -d '\n' < ${lib.escapeShellArg p.pairingCodeFile})" 2>&1); then
+            printf '%s\n' "$out" | grep -F 'Linked ' || true
+          elif printf '%s\n' "$out" | grep -qE 'answered as a T3 Code environment|stopped answering while linking|could not reach'; then
+            echo ${lib.escapeShellArg "${name}: not answering, retrying on the next run"}
+          else
+            printf '%s\n' "$out"
+            echo ${lib.escapeShellArg "${name}: link refused"}
             failed=1
           fi
         '')
