@@ -123,6 +123,14 @@
                   customModels.claudeAgent = [{slug = "example/model";}];
                   settings.continueThreadsAfterServerUpdate = true;
                   secretSettings."usageLimitSources.cliproxy.managementKey" = "/run/secrets/cliproxy";
+                  linkedEnvironments = {
+                    enable = true;
+                    peers.desk = {
+                      urls = ["https://t3.desk.example" "http://desk.tail1234.ts.net:3773"];
+                      pairingCodeFile = "/run/secrets/t3code";
+                      access = "full-access";
+                    };
+                  };
                   policy.settings.defaultRuntimeMode = {
                     value = "auto-accept-edits";
                     locked = false;
@@ -184,6 +192,7 @@
               "policy.json" = config.environment.etc."t3code/policy.json".source;
               "t3code.service" = config.systemd.user.units."t3code.service".unit;
               "t3code-declare.service" = config.systemd.user.units."t3code-declare.service".unit;
+              "t3code-link-peers.service" = config.systemd.user.units."t3code-link-peers.service".unit;
             };
       });
 

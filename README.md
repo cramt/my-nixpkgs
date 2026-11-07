@@ -87,6 +87,12 @@ from Nix as far as upstream allows:
   start. Nix owns only what it declares: anything made in the UI is left
   alone. A folder you already registered is taken over in place. Dropping a
   declaration deletes what it created (a project with threads is archived).
+- `linkedEnvironments.enable` locks the beta on in the policy, and
+  `linkedEnvironments.peers` links this server to other T3 Code machines with
+  a pairing code file (the peer's `sharedSecretFile`). A user timer links a
+  peer that isn't linked yet and relinks one whose 30-day link expires within
+  a week. Peer URLs must be https, or loopback/tailnet http: upstream won't
+  send the credentials anywhere else.
 
 `nix build .#checks.x86_64-linux.t3code-module` evaluates a sample host that
 uses every option.

@@ -54,14 +54,17 @@ self: {
 
   simlockHosts = cfg.devices.simlock.hosts;
   simlockSettings = lib.optionalAttrs (simlockHosts != {}) {
-    simlockDeviceHosts = lib.mapAttrsToList (id: h: {
-      kind = "simlock";
-      inherit id;
-      inherit (h) label gatewayUrl maxLeases maxLeaseMinutes;
-    }) simlockHosts;
+    simlockDeviceHosts =
+      lib.mapAttrsToList (id: h: {
+        kind = "simlock";
+        inherit id;
+        inherit (h) label gatewayUrl maxLeases maxLeaseMinutes;
+      })
+      simlockHosts;
   };
-  simlockSecrets = lib.listToAttrs (lib.imap0 (i: h: lib.nameValuePair "simlockDeviceHosts.${toString i}.agentToken" h.agentTokenFile)
-    (lib.attrValues simlockHosts));
+  simlockSecrets =
+    lib.listToAttrs (lib.imap0 (i: h: lib.nameValuePair "simlockDeviceHosts.${toString i}.agentToken" h.agentTokenFile)
+      (lib.attrValues simlockHosts));
 
   speechCatalog = cfg.package.speech or ours.t3code.speech;
   speechModels = lib.optionals (cfg.speech.model != null) (map (id: speechCatalog.models.${id}) (lib.unique ([cfg.speech.model] ++ cfg.speech.extraModels)));
@@ -90,9 +93,9 @@ self: {
           test -s ${lib.escapeShellArg file}
           jq --rawfile v ${lib.escapeShellArg file} \
             --argjson p ${lib.escapeShellArg (builtins.toJSON (map (s:
-              if builtins.match "[0-9]+" s != null
-              then lib.toInt s
-              else s) (lib.splitString "." path)))} \
+            if builtins.match "[0-9]+" s != null
+            then lib.toInt s
+            else s) (lib.splitString "." path)))} \
             'setpath($p; $v | rtrimstr("\n"))' ${lib.escapeShellArg "${settingsFile}.new"} > ${lib.escapeShellArg "${settingsFile}.tmp"}
           mv ${lib.escapeShellArg "${settingsFile}.tmp"} ${lib.escapeShellArg "${settingsFile}.new"}
         '')
@@ -136,36 +139,89 @@ self: {
     baseDir = cfg.dataDir;
     t3 = t3;
     readyTimeoutSeconds = 120;
-    projects = lib.mapAttrs (_: p: {
-      inherit (p) workspaceRoot title createWorkspaceRootIfMissing settings;
-    }) cfg.projects;
-    scheduledTasks = lib.mapAttrs (_: t: {
-      inherit (t) title prompt enabled runtimeMode interactionMode;
-      project = t.project;
-      schedule =
-        if t.schedule ? interval
-        then {
-          type = "interval";
-          everyMs = t.schedule.interval.minutes * 60000;
-        }
-        else if t.schedule ? daily
-        then
-          {
-            type = "fixed_time";
-            inherit (t.schedule.daily) timeOfDay;
+    projects =
+      lib.mapAttrs (_: p: {
+        inherit (p) workspaceRoot title createWorkspaceRootIfMissing settings;
+      })
+      cfg.projects;
+    scheduledTasks =
+      lib.mapAttrs (_: t: {
+        inherit (t) title prompt enabled runtimeMode interactionMode;
+        project = t.project;
+        schedule =
+          if t.schedule ? interval
+          then {
+            type = "interval";
+            everyMs = t.schedule.interval.minutes * 60000;
           }
-          // lib.optionalAttrs (t.schedule.daily.weekdays != null) {inherit (t.schedule.daily) weekdays;}
-        else {
-          type = "once";
-          inherit (t.schedule.once) runAt;
-        };
-      modelSelection = lib.filterAttrs (_: v: v != null) t.model;
-      workspaceStrategy =
-        if t.workspace ? worktree
-        then {type = "worktree";} // lib.filterAttrs (_: v: v != null) t.workspace.worktree
-        else {type = "root";} // lib.filterAttrs (_: v: v != null) t.workspace.root;
-    }) cfg.scheduledTasks;
+          else if t.schedule ? daily
+          then
+            {
+              type = "fixed_time";
+              inherit (t.schedule.daily) timeOfDay;
+            }
+            // lib.optionalAttrs (t.schedule.daily.weekdays != null) {inherit (t.schedule.daily) weekdays;}
+          else {
+            type = "once";
+            inherit (t.schedule.once) runAt;
+          };
+        modelSelection = lib.filterAttrs (_: v: v != null) t.model;
+        workspaceStrategy =
+          if t.workspace ? worktree
+          then {type = "worktree";} // lib.filterAttrs (_: v: v != null) t.workspace.worktree
+          else {type = "root";} // lib.filterAttrs (_: v: v != null) t.workspace.root;
+      })
+      cfg.scheduledTasks;
   };
+
+  # Links are server-side state (peer_environment_links + a token in the
+  # secret store), made by `t3 environment link`, which works whether or not
+  # the server runs. A link is a 30-day MCP session on the peer, and every
+  # link registers one more client in the peer's Connections, so a peer is
+  # only relinked when it isn't linked yet, its link is expiring, or its
+  # declared access changed. Peers a link lists none of the declared
+  # addresses for (UI-made links, dropped peers) are left alone.
+  #
+  # The pairing code goes on t3's command line (it takes no file or env var),
+  # so other users of the host can see it in /proc while a link runs.
+  peers = cfg.linkedEnvironments.peers;
+  renewSeconds = 7 * 24 * 3600;
+  linkPeers = pkgs.writeShellApplication {
+    name = "t3code-link-peers";
+    runtimeInputs = [pkgs.coreutils pkgs.jq cfg.package];
+    text =
+      ''
+        base=${lib.escapeShellArg cfg.dataDir}
+        listed=$(t3 environment list --json --base-dir "$base")
+        cutoff=$(( $(date +%s) + ${toString renewSeconds} ))
+        failed=0
+      ''
+      + lib.concatStrings (lib.mapAttrsToList (name: p: ''
+          if jq -e --argjson urls ${lib.escapeShellArg (builtins.toJSON p.urls)} \
+              --arg access ${lib.escapeShellArg p.access} --argjson cutoff "$cutoff" '
+                any(.[]; (.urls | any(. as $u | $urls | index($u)))
+                  and .access == $access and .status != "expired"
+                  and (.expiresAt | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601) > $cutoff)
+              ' <<<"$listed" >/dev/null; then
+            echo ${lib.escapeShellArg "${name}: linked"}
+          elif ! { test -s ${lib.escapeShellArg p.pairingCodeFile} \
+              && t3 environment link --base-dir "$base" \
+                ${lib.escapeShellArgs ([(lib.head p.urls)] ++ lib.concatMap (u: ["--url" u]) (lib.tail p.urls))} \
+                --access ${lib.escapeShellArg p.access} \
+                --pairing-code "$(tr -d '\n' < ${lib.escapeShellArg p.pairingCodeFile})"; }; then
+            echo ${lib.escapeShellArg "${name}: link failed, retrying on the next run"}
+            failed=1
+          fi
+        '')
+        peers)
+      + ''
+        exit "$failed"
+      '';
+  };
+  # What `peerOrigin` upstream will send credentials to: https, or plain
+  # http only to loopback or a tailnet name. Upstream stores the origin, and
+  # an origin is what the up-to-date check compares against.
+  peerUrl = lib.types.strMatching "(https://[^/]+|http://(localhost|127[.][0-9.]+|[[]::1[]]|[^/]+[.]ts[.]net)(:[0-9]+)?)";
 
   # Attr names become ids (`nix:<name>`); the reconciler splits on ':'.
   idName = lib.types.strMatching "[A-Za-z0-9_-]+";
@@ -398,6 +454,49 @@ in {
       };
     };
 
+    linkedEnvironments = {
+      enable = lib.mkEnableOption ''
+        linked environments (beta): agents here launch and drive threads on
+        other T3 Code machines. Locked on in the policy, so the desktop app
+        on this host gets it too
+      '';
+      peers = lib.mkOption {
+        type = lib.types.attrsOf (lib.types.submodule {
+          options = {
+            urls = lib.mkOption {
+              type = lib.types.nonEmptyListOf peerUrl;
+              example = ["https://t3.example.com"];
+              description = ''
+                Origins (no path or trailing slash) the peer answers at, tried
+                in order. https, or plain http only to loopback or a tailnet
+                name: upstream won't send the link's credentials elsewhere.
+              '';
+            };
+            pairingCodeFile = lib.mkOption {
+              type = lib.types.str;
+              description = ''
+                File holding a pairing code the peer accepts every time: its
+                `sharedSecretFile`. A one-time `t3 pair` code is gone after the
+                first link, and links expire after 30 days.
+              '';
+            };
+            access = lib.mkOption {
+              type = lib.types.enum ["read-only" "approval-required" "auto-accept-edits" "auto" "full-access"];
+              default = "approval-required";
+              description = "What this environment's agents may do on the peer. Changing it relinks.";
+            };
+          };
+        });
+        default = {};
+        description = ''
+          Other T3 Code environments to link this server to. Checked at every
+          server start and hourly; a peer is linked when it isn't yet, or its
+          link expires within a week. Dropping a peer doesn't unlink it:
+          `t3 environment unlink <id>`.
+        '';
+      };
+    };
+
     devices = {
       enable = lib.mkEnableOption ''
         the Device panel (simulators and emulators), with its npm tools from
@@ -589,6 +688,12 @@ in {
 
   config = lib.mkMerge [
     {
+      assertions = [
+        {
+          assertion = peers != {} -> cfg.enable && cfg.linkedEnvironments.enable;
+          message = "services.t3code.linkedEnvironments.peers needs services.t3code.enable and linkedEnvironments.enable: the server holds the links, and upstream refuses to link with the feature off.";
+        }
+      ];
       services.t3code.policy = {
         # The package owns the version: an in-app update would swap the store
         # build for upstream's npm one.
@@ -601,6 +706,7 @@ in {
           })
           {enableAgentDeviceAccess = lock cfg.devices.agentAccess;}
           {simlockDeviceHostsEnabled = lock cfg.devices.simlock.enable;}
+          (lib.mkIf cfg.linkedEnvironments.enable {linkedEnvironmentsEnabled = lock true;})
         ];
         homes = lib.mkIf cfg.enable [
           {
@@ -701,6 +807,29 @@ in {
         // lib.listToAttrs (map (m: lib.nameValuePair "${modelDir}/${m.filename}" {"L+".argument = "${m}";}) (speechModels ++ [speechCatalog.vad])));
 
       networking.firewall.allowedTCPPorts = lib.mkIf cfg.openFirewall [cfg.port];
+
+      # Peers come and go (laptops, desktops off at night), so a failed link
+      # is retried by the timer rather than by Restart=.
+      systemd.user.services.t3code-link-peers = lib.mkIf (peers != {}) {
+        description = "Link the declared T3 Code peer environments";
+        wantedBy = ["t3code.service"];
+        after = ["t3code.service"];
+        unitConfig.ConditionUser = cfg.user;
+        environment.T3CODE_HOME = cfg.dataDir;
+        serviceConfig = {
+          Type = "oneshot";
+          ExecStart = lib.getExe linkPeers;
+        };
+      };
+      systemd.user.timers.t3code-link-peers = lib.mkIf (peers != {}) {
+        description = "Keep the declared T3 Code peer links current";
+        wantedBy = ["timers.target"];
+        unitConfig.ConditionUser = cfg.user;
+        timerConfig = {
+          OnActiveSec = "5min";
+          OnUnitActiveSec = "1h";
+        };
+      };
 
       # `t3` on the system PATH, for `t3 pair` over ssh without the user's
       # shell dotfiles.
