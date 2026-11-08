@@ -233,6 +233,21 @@ self: {
   # an origin is what the up-to-date check compares against.
   peerUrl = lib.types.strMatching "(https://[^/]+|http://(localhost|127[.][0-9.]+|[[]::1[]]|[^/]+[.]ts[.]net)(:[0-9]+)?)";
 
+  # trustTailnet: caddy presents the shared secret as a bearer token on behalf
+  # of tailnet clients. Upstream already verifies that secret as a session with
+  # the scopes a paired client gets (SessionStore's reusable dev session), so
+  # this needs no patch to the auth code. caddy's {file.*} placeholder keeps the
+  # trailing newline, which Go then refuses as a header value (502), so caddy
+  # reads a newline-free copy. A missing copy injects "Bearer ", which t3code
+  # treats as no credential: it fails closed, not open.
+  tn = cfg.trustTailnet;
+  tailnetTokenDir = "/run/t3code-tailnet";
+  tailnetToken = "${tailnetTokenDir}/token";
+  upstreamHost =
+    if lib.elem cfg.host ["0.0.0.0" "::" ""]
+    then "127.0.0.1"
+    else cfg.host;
+
   # Attr names become ids (`nix:<name>`); the reconciler splits on ':'.
   idName = lib.types.strMatching "[A-Za-z0-9_-]+";
   modelType = lib.types.submodule {
@@ -503,6 +518,49 @@ in {
           server start and hourly; a peer is linked when it isn't yet, or its
           link expires within a week. Dropping a peer doesn't unlink it:
           `t3 environment unlink <id>`.
+        '';
+      };
+    };
+
+    trustTailnet = {
+      enable = lib.mkEnableOption ''
+        a caddy site in front of the server where a client connecting from
+        the tailnet is signed in without pairing. caddy adds
+        `Authorization: Bearer <sharedSecretFile>` to tailnet requests that
+        carry no Authorization of their own, which upstream accepts as a
+        session with a paired client's scopes. Everyone else still pairs.
+        Linked peers still link with the pairing code: the link is what
+        carries their access level
+      '';
+      virtualHost = lib.mkOption {
+        type = lib.types.str;
+        example = "saturn.ts.example.com";
+        description = ''
+          caddy site address (`services.caddy.virtualHosts` key). TLS is the
+          host's business: add a cert through the same virtualHost
+          (`useACMEHost`, or a `tls` block in its extraConfig).
+        '';
+      };
+      ranges = lib.mkOption {
+        type = lib.types.nonEmptyListOf lib.types.str;
+        # Tailscale's (and headscale's default) node prefixes.
+        default = ["100.64.0.0/10" "fd7a:115c:a1e0::/48"];
+        description = ''
+          Client addresses that count as the tailnet, matched with caddy's
+          `client_ip`. That is the TCP peer unless caddy's `trusted_proxies`
+          says otherwise, so a proxy that relays the public internet to this
+          site over the tailnet must be listed in `trusted_proxies`, or its
+          visitors arrive with its tailnet address and are trusted.
+        '';
+      };
+      excludeRanges = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = [];
+        example = ["100.64.0.3/32"];
+        description = ''
+          Addresses inside `ranges` that are not trusted. Put this host's own
+          tailnet address here on a machine where other local users exist:
+          a process on the host that dials the tailnet name connects from it.
         '';
       };
     };
@@ -887,6 +945,60 @@ in {
           Restart = "on-failure";
           RestartSec = 10;
         };
+      };
+    })
+
+    (lib.mkIf tn.enable {
+      assertions = [
+        {
+          assertion = cfg.enable && cfg.sharedSecretFile != null;
+          message = "services.t3code.trustTailnet needs services.t3code.enable and sharedSecretFile: the secret is the credential caddy presents for tailnet clients.";
+        }
+      ];
+
+      services.caddy.enable = true;
+      services.caddy.virtualHosts.${tn.virtualHost}.extraConfig = ''
+        @t3codeTailnet {
+          client_ip ${lib.concatStringsSep " " tn.ranges}
+          ${lib.optionalString (tn.excludeRanges != []) "not client_ip ${lib.concatStringsSep " " tn.excludeRanges}"}
+          # A client's own credential (a paired cookie aside) wins.
+          not header Authorization *
+          # /mcp only takes MCP client tokens; injecting would turn its
+          # "no credential, go sign in" 401 into an invalid-credential one.
+          not path /mcp /mcp/*
+        }
+        request_header @t3codeTailnet Authorization "Bearer {file.${tailnetToken}}"
+        reverse_proxy ${upstreamHost}:${toString cfg.port}
+      '';
+
+      # Re-run whenever the secret changes; caddy reads the copy per request,
+      # so a rotated secret needs no caddy restart.
+      systemd.services.t3code-tailnet-token = {
+        description = "Newline-free copy of the T3 Code shared secret for caddy";
+        wantedBy = ["caddy.service"];
+        before = ["caddy.service"];
+        serviceConfig = {
+          Type = "oneshot";
+          Group = config.services.caddy.group;
+          RuntimeDirectory = baseNameOf tailnetTokenDir;
+          RuntimeDirectoryMode = "0750";
+          RuntimeDirectoryPreserve = true;
+          UMask = "0227";
+        };
+        # Never fails: a secret not rendered yet must not take caddy (and
+        # every other site on the host) down with it.
+        script = ''
+          if [ -s ${lib.escapeShellArg cfg.sharedSecretFile} ]; then
+            tr -d '\n' < ${lib.escapeShellArg cfg.sharedSecretFile} > ${tailnetToken}.new
+            mv ${tailnetToken}.new ${tailnetToken}
+          else
+            rm -f ${tailnetToken}
+          fi
+        '';
+      };
+      systemd.paths.t3code-tailnet-token = {
+        wantedBy = ["multi-user.target"];
+        pathConfig.PathChanged = cfg.sharedSecretFile;
       };
     })
   ];

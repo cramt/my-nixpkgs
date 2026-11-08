@@ -115,6 +115,9 @@
                 boot.isContainer = true;
                 system.stateVersion = "26.05";
                 users.users.alice.isNormalUser = true;
+                # The default per-site log under /var/log is unopenable in the
+                # sandbox, where the check runs `caddy validate`.
+                services.caddy.virtualHosts."alice.ts.example.com".logFormat = "output discard";
                 services.t3code = {
                   enable = true;
                   user = "alice";
@@ -130,6 +133,11 @@
                       pairingCodeFile = "/run/secrets/t3code";
                       access = "full-access";
                     };
+                  };
+                  trustTailnet = {
+                    enable = true;
+                    virtualHost = "alice.ts.example.com";
+                    excludeRanges = ["100.64.0.3/32"];
                   };
                   policy.settings.defaultRuntimeMode = {
                     value = "auto-accept-edits";
@@ -193,6 +201,14 @@
               "t3code.service" = config.systemd.user.units."t3code.service".unit;
               "t3code-declare.service" = config.systemd.user.units."t3code-declare.service".unit;
               "t3code-link-peers.service" = config.systemd.user.units."t3code-link-peers.service".unit;
+              "t3code-tailnet-token.service" = config.systemd.units."t3code-tailnet-token.service".unit;
+              # caddy fmt alone accepts unknown directives; validate provisions
+              # the matcher and placeholder, so a bad trustTailnet site fails here.
+              "Caddyfile" = pkgs.runCommand "t3code-module-caddy-validate" {} ''
+                export HOME=$TMPDIR XDG_DATA_HOME=$TMPDIR XDG_CONFIG_HOME=$TMPDIR
+                ${lib.getExe config.services.caddy.package} validate --adapter caddyfile --config ${config.services.caddy.configFile}
+                cp ${config.services.caddy.configFile} $out
+              '';
             };
       });
 

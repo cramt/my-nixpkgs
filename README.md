@@ -96,8 +96,18 @@ from Nix as far as upstream allows:
   Peer URLs must be https, or loopback/tailnet http: upstream won't
   send the credentials anywhere else.
 
+- `trustTailnet` puts a caddy site (`virtualHost`) in front of the server
+  where clients connecting from the tailnet (`ranges`, minus `excludeRanges`)
+  are signed in without pairing: caddy adds the `sharedSecretFile` as a
+  bearer token to their requests, and upstream accepts that as a session with
+  a paired client's scopes. No patch to t3code's auth. Everyone else still
+  pairs, and linked peers still link with the pairing code. TLS for the site
+  is left to the host. A proxy relaying the public internet to the site over
+  the tailnet must be in caddy's `trusted_proxies`, or its visitors count as
+  tailnet.
+
 `nix build .#checks.x86_64-linux.t3code-module` evaluates a sample host that
-uses every option.
+uses every option, and runs `caddy validate` on the site trustTailnet makes.
 
 ## Adding a package
 
