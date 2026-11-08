@@ -1,0 +1,17 @@
+{
+  "version": "2.42.0",
+  "files": {
+    "x86_64-linux": "op_linux_amd64_v@version@.zip",
+    "aarch64-linux": "op_linux_arm64_v@version@.zip",
+    "armv7l-linux": "op_linux_arm_v@version@.zip",
+    "i686-linux": "op_linux_386_v@version@.zip",
+    "aarch64-darwin": "op_apple_universal_v@version@.pkg"
+  },
+  "hashes": {
+    "aarch64-darwin": "sha256-gGfcsNLfn2B57i6BXv744fkXpcS18SOtEbPtlK7JGfk=",
+    "aarch64-linux": "sha256-5Ww3n6uvs5POaZJY5IRpSr5GSHD7QfNc4bXD8XhoumE=",
+    "armv7l-linux": "sha256-fxDoLyNohT4b8R6vn7oTh9IFgT7go4pCegB1pIgeAo4=",
+    "i686-linux": "sha256-BCFIezycIPkhY4d0geLC0mWTa7USyV3YktaZzf8iZmY=",
+    "x86_64-linux": "sha256-Jh/jhEpD5+g6PYXoqfNkEXKUNqHTrdHcfdRsu87r6eU="
+  }
+}

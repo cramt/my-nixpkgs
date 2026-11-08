@@ -6,6 +6,7 @@ pushes builds to [cramt.cachix.org](https://cramt.cachix.org).
 
 | Package | What it is |
 |---|---|
+| `_1password-cli` | 1Password's `op`, tracking upstream, plus the armv7l build nixpkgs leaves out (shadows nixpkgs') |
 | `agent-browser` | Vercel's browser-automation CLI for AI agents |
 | `agentsview` | Local session analytics for coding agents |
 | `batt` | Battery charge limiter daemon for Apple Silicon MacBooks (aarch64-darwin only) |
@@ -21,7 +22,7 @@ pushes builds to [cramt.cachix.org](https://cramt.cachix.org).
 | `t3code-declare` | Applies declared projects and scheduled tasks to a running T3 Code server (used by `nixosModules.t3code`) |
 | `zed-delta` | Zed's Delta agent (not git-delta, so not `delta`) |
 
-`zed-delta` and `steamlink` are unfree. Delta's license is Zed's
+`zed-delta`, `steamlink` and `_1password-cli` are unfree. Delta's license is Zed's
 [terms](https://zed.dev/terms) plus Delta's
 [Early Access Agreement](https://delta.dev/early-access); the build downloads
 the release from delta.dev, nothing is redistributed here.
