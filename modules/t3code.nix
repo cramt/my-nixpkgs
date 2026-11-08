@@ -975,7 +975,9 @@ in {
       # so a rotated secret needs no caddy restart.
       systemd.services.t3code-tailnet-token = {
         description = "Newline-free copy of the T3 Code shared secret for caddy";
-        wantedBy = ["caddy.service"];
+        # multi-user too: a deploy only reloads caddy, which starts nothing it
+        # wants, and the path unit below fires on changes, not on first boot.
+        wantedBy = ["caddy.service" "multi-user.target"];
         before = ["caddy.service"];
         serviceConfig = {
           Type = "oneshot";
