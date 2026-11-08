@@ -906,7 +906,15 @@ in {
       systemd.user.services.t3code = {
         description = "T3 Code server";
         wantedBy = ["default.target"];
-        unitConfig.ConditionUser = cfg.user;
+        unitConfig = {
+          ConditionUser = cfg.user;
+          # Never give up. A deploy's activation restarts the unit itself, and
+          # those restarts count toward the start limit too: a pre-start that
+          # fails three times in a second (secrets not rendered yet) left the
+          # server dead until someone ran reset-failed, and a user unit doesn't
+          # show in `systemctl --failed`. Restart= then retries every 5 s.
+          StartLimitIntervalSec = 0;
+        };
         environment =
           {
             NODE_ENV = "production";
