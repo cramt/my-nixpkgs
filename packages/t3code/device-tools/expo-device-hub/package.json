@@ -1,4 +1,6 @@
 {
   "private": true,
-  "dependencies": { "expo-device-hub": "0.19.1" }
+  "dependencies": {
+    "expo-device-hub": "0.22.1"
+  }
 }

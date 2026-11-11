@@ -1,4 +1,6 @@
 {
   "private": true,
-  "dependencies": { "agent-device": "0.21.31" }
+  "dependencies": {
+    "agent-device": "0.21.36"
+  }
 }
