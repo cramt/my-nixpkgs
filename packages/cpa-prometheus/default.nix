@@ -11,16 +11,16 @@
 # a plugins dir rather than linking it.
 buildGoModule (finalAttrs: {
   pname = "cpa-prometheus";
-  version = "0.2.2";
+  version = "0.2.4";
 
   src = fetchFromGitHub {
     owner = "giovannirco";
     repo = "cpa-prometheus-plugin";
     tag = "v${finalAttrs.version}";
-    hash = "sha256-SugvNWYXvB+UyU7IWn21io3TXFlAd0RzFtou/x3iC1M=";
+    hash = "sha256-hbRZTNEaH3hDqL2sdjjdbBbMAlUlsjFiVBAKAx2gf7A=";
   };
 
-  vendorHash = "sha256-nbGJDnFfVUQ2UiTjq+CuUr/+PKNLsGNQ76HyQxRBoRU=";
+  vendorHash = "sha256-2A03xSNYVaszGFPJyw4gctArRfpDlH+KcFWWsceDW4o=";
 
   # c-shared needs cgo, which buildGoModule already enables on linux; the
   # version ldflag is what the plugin reports in its registration metadata.
