@@ -1,6 +1,6 @@
 {
-  "version": "0.1.10-nightly.20261113.4643",
-  "hash": "sha256-0gfkmJ1UGJ9cF5QhnkP+KP8iCRmYSD7lyYy16euRmjQ=",
+  "version": "0.1.10-nightly.20261113.4656",
+  "hash": "sha256-1XgeqK84njijPSZ5qYDZJvZyMxZAqA+Cv/zaSFazwEU=",
   "pnpmDepsHash": "sha256-i6Z/qXyw6FfYSU6XzNUVPPY0ZEAQhwk1eqj5VIOFelw=",
   "cargoHash": "sha256-5cmG2daM1bVOA23gjjoalbx0fEL1hmqV6WZov0sUZp8=",
   "spdx": {
@@ -8,8 +8,8 @@
     "hash": "sha256-DnrdJ13M8Vf8Dq8qKlO7Ad5jXa8L9YU9PBlpp7B9BoI="
   },
   "headlessShell": {
-    "version": "157.0.8103.38",
-    "linux64": "deafffa74660b34853a4119c361fd427ac8c9fcb62db51ddb8a797cd83a4ba2d",
-    "linux-arm64": "b9b910a57b2a15eb3e55000a2339f93a973934a413ebfc6e585a50ec6c42fd6c"
+    "version": "157.0.8103.78",
+    "linux64": "f90329720fb61e5a76da9b6b509b6ad12a484c9c5df0359403e935177c6d153a",
+    "linux-arm64": "912fbf877e53de34d7b3cca5104f3b95607d41bd35412ccc6cd2a599ff0c0dbf"
   }
 }
