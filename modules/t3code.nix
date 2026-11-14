@@ -215,7 +215,7 @@ self: {
               --access ${lib.escapeShellArg p.access} \
               --pairing-code "$(tr -d '\n' < ${lib.escapeShellArg p.pairingCodeFile})" 2>&1); then
             printf '%s\n' "$out" | grep -F 'Linked ' || true
-          elif printf '%s\n' "$out" | grep -qE 'answered as a T3 Code environment|stopped answering while linking|could not reach'; then
+          elif printf '%s\n' "$out" | grep -qE 'answered as a T3 Code environment|stopped answering while linking|could not reach|did not answer within'; then
             echo ${lib.escapeShellArg "${name}: not answering, retrying on the next run"}
           else
             printf '%s\n' "$out"
