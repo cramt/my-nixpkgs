@@ -887,6 +887,13 @@ in {
         serviceConfig = {
           Type = "oneshot";
           ExecStart = lib.getExe linkPeers;
+          # A healthy run takes ~25s. Without a cap, a hung `t3 environment`
+          # call sits on server-owner.sqlite (the server then exits with
+          # ServerAlreadyRunningError on every restart), and since
+          # home-manager and switch-to-configuration wait on user start jobs,
+          # one hung run also blocks a whole NixOS activation. The timer
+          # retries hourly anyway.
+          TimeoutStartSec = "3min";
         };
       };
       systemd.user.timers.t3code-link-peers = lib.mkIf (peers != {}) {
