@@ -91,6 +91,16 @@ in
         --replace-fail 'let is_prod = db::DatabaseManager::resolve_env().to_lowercase() == "production";' \
                        'let is_prod = db::DatabaseManager::resolve_env().to_lowercase() == "production";
       if !std::env::args().any(|a| a == "--hidden") { if let Some(w) = app.get_webview_window("main") { let _ = w.show(); } }'
+
+      # matches.rs's test fixture opens a whole pool on sqlite::memory:, and
+      # every pooled connection is its own empty database, so the seeding
+      # INSERT fails with "no such table: cards_cache" whenever it lands on a
+      # second connection. One connection, as card_db.rs and db.rs's fixtures
+      # already do. Not reported upstream as of v1.9.3 (2026-11-14); drop once
+      # the fixture stops calling SqlitePool::connect("sqlite::memory:").
+      substituteInPlace src-tauri/src/commands/matches.rs \
+        --replace-fail 'sqlx::SqlitePool::connect("sqlite::memory:")' \
+                       'sqlx::sqlite::SqlitePoolOptions::new().max_connections(1).connect("sqlite::memory:")'
     '';
 
     nativeBuildInputs = [
