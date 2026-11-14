@@ -28,6 +28,7 @@
   libsoup_3,
   glib-networking,
   openssl,
+  sqlite,
   libayatana-appindicator,
   xdotool,
 }: let
@@ -104,6 +105,9 @@ in
       libsoup_3
       glib-networking
       openssl
+      # sqlx's libsqlite3-sys links the system sqlite (no `bundled` feature).
+      # It used to arrive transitively and stopped with the 2026-11 nixpkgs.
+      sqlite
       libayatana-appindicator
       xdotool
     ];
