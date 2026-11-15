@@ -88,6 +88,8 @@ from Nix as far as upstream allows:
   start. Nix owns only what it declares: anything made in the UI is left
   alone. A folder you already registered is taken over in place. Dropping a
   declaration deletes what it created (a project with threads is archived).
+  It waits out a server that's still starting, a long database migration
+  included, without holding up a NixOS switch.
 - `linkedEnvironments.enable` locks the beta on in the policy, and
   `linkedEnvironments.peers` links this server to other T3 Code machines with
   a pairing code file (the peer's `sharedSecretFile`). A user timer links a

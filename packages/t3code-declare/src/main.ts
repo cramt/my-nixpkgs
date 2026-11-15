@@ -63,7 +63,11 @@ type Spec = {
   origin: string;
   baseDir: string;
   t3: string;
+  systemctl: string;
+  // The server's own user unit, whose state tells a dead server from a slow one.
+  serverUnit: string;
   readyTimeoutSeconds: number;
+  refusedTimeoutSeconds: number;
   projects: { [name: string]: ProjectSpec };
   scheduledTasks: { [name: string]: TaskSpec };
 };
@@ -106,22 +110,51 @@ async function revokeSession(spec: Spec, session: Session): Promise<void> {
   );
 }
 
+async function serverUnitState(spec: Spec): Promise<string> {
+  // `show` exits 0 for any state, unknown units included ("inactive").
+  const { stdout } = await run(spec.systemctl, ["--user", "show", "--property=ActiveState", "--value", spec.serverUnit]);
+  return stdout.trim();
+}
+
+// Upstream has no readiness endpoint. It binds the port first and answers
+// every request with an empty 503 (rejectRequestsUntilServing in
+// apps/server/src/httpResponseErrorGuard.ts) until startup is done, and
+// startup includes database migrations, which run for 10+ minutes on a
+// multi-GB statev2.sqlite. So a 503 means alive and busy, and only the
+// unit's state or a port that stays closed means dead.
 async function waitForServer(spec: Spec): Promise<void> {
-  const deadline = Date.now() + spec.readyTimeoutSeconds * 1000;
+  const started = Date.now();
+  let refusedSince: number | undefined;
+  let lastReport = started;
   for (;;) {
     let why: string;
     try {
-      // 401 means up. A 5xx means still starting: it answers 503 while it
-      // migrates the database, and `t3 auth session issue` fails until then.
+      // 401 means up: /api/projects needs a session.
       const res = await fetch(new URL("/api/projects", spec.origin));
       await res.body?.cancel();
       if (res.status < 500) return;
       why = `HTTP ${res.status}`;
+      refusedSince = undefined;
     } catch (err) {
-      why = String(err);
+      why = String((err as { cause?: unknown }).cause ?? err);
+      refusedSince ??= Date.now();
     }
-    if (Date.now() > deadline) throw new Error(`server at ${spec.origin} not ready: ${why}`);
-    await new Promise((r) => setTimeout(r, 1000));
+    const state = await serverUnitState(spec);
+    const now = Date.now();
+    if (state === "failed" || state === "inactive") {
+      throw new Error(`${spec.serverUnit} is ${state}, not waiting for ${spec.origin} (${why})`);
+    }
+    if (refusedSince !== undefined && now - refusedSince > spec.refusedTimeoutSeconds * 1000) {
+      throw new Error(`${spec.origin} has not answered for ${spec.refusedTimeoutSeconds}s (${why}), ${spec.serverUnit} is ${state}`);
+    }
+    if (now - started > spec.readyTimeoutSeconds * 1000) {
+      throw new Error(`server at ${spec.origin} not ready after ${spec.readyTimeoutSeconds}s: ${why}`);
+    }
+    if (now - lastReport >= 60_000) {
+      console.log(`still waiting for ${spec.origin}: ${why}, ${spec.serverUnit} is ${state}`);
+      lastReport = now;
+    }
+    await new Promise((r) => setTimeout(r, 2000));
   }
 }
 
@@ -309,6 +342,12 @@ async function main(): Promise<void> {
   const spec = JSON.parse(await readFile(specPath, "utf8")) as Spec;
 
   await waitForServer(spec);
+  // Nothing below has its own timeout (a WebSocket request can wait forever),
+  // and the unit, running in the background, has no start timeout to end it.
+  setTimeout(() => {
+    console.error("reconciling took over 5 minutes, giving up");
+    process.exit(1);
+  }, 5 * 60_000).unref();
   const session = await issueSession(spec);
   let rpc: Rpc | undefined;
   try {

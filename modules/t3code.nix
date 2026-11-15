@@ -138,7 +138,16 @@ self: {
     origin = "http://127.0.0.1:${toString cfg.port}";
     baseDir = cfg.dataDir;
     t3 = t3;
-    readyTimeoutSeconds = 120;
+    systemctl = lib.getExe' config.systemd.package "systemctl";
+    serverUnit = "t3code.service";
+    # A server that's migrating answers 503 the whole time, and a 2.3 GB
+    # statev2.sqlite spent over 10 minutes on one of three pending migrations.
+    # An hour leaves room for a bigger database and a slower disk; a dead
+    # server is caught long before that by its unit state or a closed port.
+    readyTimeoutSeconds = 3600;
+    # The port opens within seconds of the process starting, migrations
+    # included (they run behind the 503), so this long closed is a crash loop.
+    refusedTimeoutSeconds = 300;
     projects =
       lib.mapAttrs (_: p: {
         inherit (p) workspaceRoot title createWorkspaceRootIfMissing settings;
@@ -980,8 +989,16 @@ in {
         requires = ["t3code.service"];
         partOf = ["t3code.service"];
         unitConfig.ConditionUser = cfg.user;
+        # Not a oneshot: switch-to-configuration (and home-manager) wait on
+        # user start jobs before starting any system unit, and the wait here
+        # can last a whole migration (up to readyTimeoutSeconds). A oneshot
+        # holds the start job open for all of it, so a slow migration stalled
+        # the activation and its failure rolled back a fleet deploy. Type=exec
+        # finishes the start job once the binary runs, and the waiting happens
+        # in the active unit. RemainAfterExit keeps it active after a good run,
+        # so a changed spec restarts it on the next switch.
         serviceConfig = {
-          Type = "oneshot";
+          Type = "exec";
           RemainAfterExit = true;
           ExecStart = "${lib.getExe ours.t3code-declare} ${declareSpec}";
           Restart = "on-failure";
