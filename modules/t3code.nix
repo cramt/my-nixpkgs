@@ -191,13 +191,41 @@ self: {
   renewSeconds = 7 * 24 * 3600;
   linkPeers = pkgs.writeShellApplication {
     name = "t3code-link-peers";
-    runtimeInputs = [pkgs.coreutils pkgs.jq cfg.package];
+    runtimeInputs = [pkgs.coreutils pkgs.gnused pkgs.jq cfg.package];
     text =
       ''
         base=${lib.escapeShellArg cfg.dataDir}
         listed=$(t3 environment list --json --base-dir "$base")
         cutoff=$(( $(date +%s) + ${toString renewSeconds} ))
         failed=0
+
+        # link <pairing code file> <access> <url> [--url <url>]...
+        link() {
+          local code=$1 access=$2
+          shift 2
+          t3 environment link --base-dir "$base" "$@" --access "$access" \
+            --pairing-code "$(tr -d '\n' < "$code")" 2>&1
+        }
+
+        # Upstream refuses a peer that's still linked at an origin we no longer
+        # declare (a host that was off while the fleet's URLs moved). The
+        # declared URLs are where it lives now, so drop the stale links to that
+        # same environment and link again. Reads and rewrites the caller's $out.
+        relink_moved() {
+          local urls=$1 moved stale id
+          shift
+          moved=$(sed -n 's/.* answers as \(.*\), which is already linked at another address.*/\1/p' <<<"$out" | head -n1)
+          [ -n "$moved" ] || return 1
+          stale=$(jq -r --arg label "$moved" --argjson urls "$urls" '
+              .[] | select(.label == $label and (.urls | all(. as $u | $urls | index($u) | not)))
+                  | .environmentId' <<<"$listed")
+          [ -n "$stale" ] || return 1
+          for id in $stale; do
+            t3 environment unlink --base-dir "$base" "$id" >/dev/null 2>&1 || return 1
+            echo "$moved: dropped its link at an old address ($id)"
+          done
+          out=$(link "$@")
+        }
       ''
       + lib.concatStrings (lib.mapAttrsToList (name: p: ''
           if jq -e --argjson urls ${lib.escapeShellArg (builtins.toJSON p.urls)} \
@@ -210,10 +238,9 @@ self: {
           elif ! test -s ${lib.escapeShellArg p.pairingCodeFile}; then
             echo ${lib.escapeShellArg "${name}: ${p.pairingCodeFile} is missing or empty"}
             failed=1
-          elif out=$(t3 environment link --base-dir "$base" \
-              ${lib.escapeShellArgs ([(lib.head p.urls)] ++ lib.concatMap (u: ["--url" u]) (lib.tail p.urls))} \
-              --access ${lib.escapeShellArg p.access} \
-              --pairing-code "$(tr -d '\n' < ${lib.escapeShellArg p.pairingCodeFile})" 2>&1); then
+          elif out=$(link ${lib.escapeShellArgs ([p.pairingCodeFile p.access (lib.head p.urls)] ++ lib.concatMap (u: ["--url" u]) (lib.tail p.urls))}) \
+              || relink_moved ${lib.escapeShellArg (builtins.toJSON p.urls)} \
+                ${lib.escapeShellArgs ([p.pairingCodeFile p.access (lib.head p.urls)] ++ lib.concatMap (u: ["--url" u]) (lib.tail p.urls))}; then
             printf '%s\n' "$out" | grep -F 'Linked ' || true
           elif printf '%s\n' "$out" | grep -qE 'answered as a T3 Code environment|stopped answering while linking|could not reach|did not answer within'; then
             echo ${lib.escapeShellArg "${name}: not answering, retrying on the next run"}
