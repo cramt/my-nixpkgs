@@ -1,0 +1,88 @@
+{
+  "apps": {
+    "googlephotos": {
+      "apk": {
+        "all": {
+          "hash": "sha256-9VabctDoUROkqMlkPYgnRSITO/fBeiSwB15d+1iQp/M=",
+          "name": "googlephotos-devanced-v7.92.0.977185651-all.apk"
+        }
+      },
+      "brand": "devanced",
+      "module": {
+        "all": {
+          "hash": "sha256-k4naaDxg6mbuvASQHfLbcBGGn/jBkItlibQWk6uVEeo=",
+          "name": "googlephotos-devanced-module-v7.92.0.977185651-all.zip"
+        }
+      },
+      "tag": "20221126",
+      "version": "7.92.0.977185651"
+    },
+    "music": {
+      "apk": {
+        "arm-v7a": {
+          "hash": "sha256-3sJYkQoyremlOac+s291wTkz4gj3imIb6e1ZxYn/mQ8=",
+          "name": "music-morphe-v9.30.53-arm-v7a.apk"
+        },
+        "arm64-v8a": {
+          "hash": "sha256-lZM3CyZKsUaQ9iVp282yfimPTAM2Yzy6BD4Lv7N7lTs=",
+          "name": "music-morphe-v9.30.53-arm64-v8a.apk"
+        }
+      },
+      "brand": "morphe",
+      "module": {
+        "arm-v7a": {
+          "hash": "sha256-Di0ogDEBihsW59U8bgoSi218DAAf7a9NEiW/mNkJlTA=",
+          "name": "music-morphe-module-v9.30.53-arm-v7a.zip"
+        },
+        "arm64-v8a": {
+          "hash": "sha256-gF7+3HGzYZQKNu1Bu4/ii9bDt66srOpKTh/lWj4PhPM=",
+          "name": "music-morphe-module-v9.30.53-arm64-v8a.zip"
+        }
+      },
+      "tag": "20221128",
+      "version": "9.30.53"
+    },
+    "reddit": {
+      "apk": {
+        "all": {
+          "hash": "sha256-WtyKmVSkzHsJ4cLs7Ztu/j1PyqAhuHkEj3dPTAyVvxg=",
+          "name": "reddit-morphe-v2026.40.0-all.apk"
+        }
+      },
+      "brand": "morphe",
+      "module": {},
+      "tag": "20221128",
+      "version": "2026.40.0"
+    },
+    "twitter": {
+      "apk": {
+        "all": {
+          "hash": "sha256-eM6XRfwRhpLAUZJTJHeV2AD0a6hpCe7lVzsxjGoOuWI=",
+          "name": "twitter-piko-v12.40.1-prod.01-all.apk"
+        }
+      },
+      "brand": "piko",
+      "module": {},
+      "tag": "20221127",
+      "version": "12.40.1-prod.01"
+    },
+    "youtube": {
+      "apk": {
+        "all": {
+          "hash": "sha256-vzgrjnaTZM5p6bsGJ4Ifzvp2PvWPw2AliwpQj5gk64M=",
+          "name": "youtube-morphe-v21.30.216-all.apk"
+        }
+      },
+      "brand": "morphe",
+      "module": {
+        "all": {
+          "hash": "sha256-ui63cUOwP0DoxwCaQIqpKxmnRzqrViezk9vgTA45D7A=",
+          "name": "youtube-morphe-module-v21.30.216-all.zip"
+        }
+      },
+      "tag": "20221128",
+      "version": "21.30.216"
+    }
+  },
+  "version": "20221128"
+}

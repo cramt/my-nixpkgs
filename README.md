@@ -15,6 +15,8 @@ pushes builds to [cramt.cachix.org](https://cramt.cachix.org).
 | `colibri` | Streaming inference engine for MoE models (CPU by default, `rocmSupport`/`vulkanSupport` overrides) |
 | `cpa-prometheus` | CLIProxyAPI plugin exporting Prometheus metrics |
 | `fluxer` | Fluxer chat desktop app, from the upstream AppImage (x86_64) |
+| `microg-re` | Morphe's microG (`app.revanced.android.gms`): Google sign-in for the patched YouTube and Music APKs |
+| `revanced-magisk-module` | j-hc's CI builds: YouTube, Music, Reddit (Morphe), Twitter (Piko), Google Photos (De-Vanced) as APKs and Magisk modules, per app in `passthru.apps` |
 | `rhystic-tracker` | MTG Arena match tracker |
 | `simlock` | Leases simulators, emulators and phones to coding agents (worker + gateway) |
 | `steamlink` | Valve Steam Link client, aarch64 only |
@@ -22,7 +24,7 @@ pushes builds to [cramt.cachix.org](https://cramt.cachix.org).
 | `t3code-declare` | Applies declared projects and scheduled tasks to a running T3 Code server (used by `nixosModules.t3code`) |
 | `zed-delta` | Zed's Delta agent (not git-delta, so not `delta`) |
 
-`zed-delta`, `steamlink` and `_1password-cli` are unfree. Delta's license is Zed's
+`zed-delta`, `steamlink`, `_1password-cli` and `revanced-magisk-module` are unfree. Delta's license is Zed's
 [terms](https://zed.dev/terms) plus Delta's
 [Early Access Agreement](https://delta.dev/early-access); the build downloads
 the release from delta.dev, nothing is redistributed here.
