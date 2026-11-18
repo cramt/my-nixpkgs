@@ -22,6 +22,7 @@ pushes builds to [cramt.cachix.org](https://cramt.cachix.org).
 | `steamlink` | Valve Steam Link client, aarch64 only |
 | `t3code`, `t3code-desktop`, `t3code-device-tools` | T3 Code server/CLI, desktop app, and the Device panel's npm tools, from upstream nightlies |
 | `t3code-declare` | Applies declared projects and scheduled tasks to a running T3 Code server (used by `nixosModules.t3code`) |
+| `terraform-provider-better-uptime`, `terraform-provider-mimir`, `terraform-provider-posthog` | OpenTofu/Terraform providers nixpkgs doesn't package, built with its `mkProvider` so `opentofu.withPlugins` takes them |
 | `zed-delta` | Zed's Delta agent (not git-delta, so not `delta`) |
 
 `zed-delta`, `steamlink`, `_1password-cli` and `revanced-magisk-module` are unfree. Delta's license is Zed's
