@@ -25,13 +25,13 @@ in
   # a package is defined in, and that would be nixpkgs'.
   (buildGoLatestModule.override {inherit go;}) (finalAttrs: {
     pname = "terraform-provider-posthog";
-    version = "1.0.31";
+    version = "1.0.32";
 
     src = fetchFromGitHub {
       owner = "PostHog";
       repo = "terraform-provider-posthog";
       tag = "v${finalAttrs.version}";
-      hash = "sha256-S3Zeefs56hsRIa9rfgG5ZD9N+Dzw2B+s03qVr1KppHE=";
+      hash = "sha256-RTK38px1h0Ee241hYsub2dbImV4GnyEQOhe7I5jDDpE=";
     };
 
     # The repo commits its vendor/ directory.
