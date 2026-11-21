@@ -15,7 +15,7 @@
 
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { promisify } from "node:util";
 
 const run = promisify(execFile);
@@ -29,7 +29,8 @@ type ModelSelection = { instanceId: string; model: string; options?: Json };
 type Schedule =
   | { type: "interval"; everyMs: number }
   | { type: "fixed_time"; timeOfDay: string; weekdays?: number[] }
-  | { type: "once"; runAt: string };
+  | { type: "once"; runAt: string }
+  | { type: "webhook" };
 
 type WorkspaceStrategy =
   | { type: "root"; branch?: string }
@@ -68,6 +69,8 @@ type Spec = {
   serverUnit: string;
   readyTimeoutSeconds: number;
   refusedTimeoutSeconds: number;
+  // One file per declared webhook task, holding its local trigger URL.
+  webhookDir: string;
   projects: { [name: string]: ProjectSpec };
   scheduledTasks: { [name: string]: TaskSpec };
 };
@@ -331,6 +334,35 @@ async function reconcileTasks(spec: Spec, rpc: Rpc, projectIds: Map<string, stri
     if (name === undefined || name in spec.scheduledTasks) continue;
     await rpc.request("scheduledTasks.delete", { id: task.id });
     console.log(`scheduled task ${task.id}: no longer declared, deleted`);
+  }
+
+  await writeWebhookUrls(spec, rpc);
+}
+
+// The server mints a webhook task's URL token and keeps it across upserts, so
+// the URL is read back after applying and handed to callers as a file.
+async function writeWebhookUrls(spec: Spec, rpc: Rpc): Promise<void> {
+  const { tasks } = await rpc.request<{ tasks: { id: string; webhook?: { path: string } }[] }>(
+    "scheduledTasks.subscribe",
+    {},
+  );
+  const paths = new Map(tasks.flatMap((t) => {
+    const name = ownerName(t.id);
+    return name !== undefined && t.webhook ? [[name, t.webhook.path] as const] : [];
+  }));
+  await mkdir(spec.webhookDir, { recursive: true, mode: 0o700 });
+  for (const [name, want] of Object.entries(spec.scheduledTasks)) {
+    if (want.schedule.type !== "webhook") continue;
+    const path = paths.get(name);
+    if (!path) throw new Error(`scheduled task ${name}: the server returned no webhook URL`);
+    const file = `${spec.webhookDir}/${name}`;
+    await writeFile(`${file}.tmp`, `${new URL(path, spec.origin)}\n`, { mode: 0o600 });
+    await rename(`${file}.tmp`, file);
+    console.log(`scheduled task ${name}: webhook URL in ${file}`);
+  }
+  for (const entry of await readdir(spec.webhookDir)) {
+    if (spec.scheduledTasks[entry]?.schedule.type === "webhook") continue;
+    await rm(`${spec.webhookDir}/${entry}`, { force: true });
   }
 }
 

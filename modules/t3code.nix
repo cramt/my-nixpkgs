@@ -148,6 +148,7 @@ self: {
     # The port opens within seconds of the process starting, migrations
     # included (they run behind the 503), so this long closed is a crash loop.
     refusedTimeoutSeconds = 300;
+    webhookDir = "${cfg.dataDir}/declared-webhooks";
     projects =
       lib.mapAttrs (_: p: {
         inherit (p) workspaceRoot title createWorkspaceRootIfMissing settings;
@@ -170,10 +171,14 @@ self: {
               inherit (t.schedule.daily) timeOfDay;
             }
             // lib.optionalAttrs (t.schedule.daily.weekdays != null) {inherit (t.schedule.daily) weekdays;}
-          else {
+          else if t.schedule ? once
+          then {
             type = "once";
             inherit (t.schedule.once) runAt;
-          };
+          }
+          # URL token only: callers are on this host and read the URL from
+          # webhookUrlFile, which is already the secret.
+          else {type = "webhook";};
         modelSelection = lib.filterAttrs (_: v: v != null) t.model;
         workspaceStrategy =
           if t.workspace ? worktree
@@ -733,6 +738,10 @@ in {
                   };
                 };
               };
+              webhook = lib.mkOption {
+                type = lib.types.submodule {};
+                description = "Run on every request to the URL in webhookUrlFile.";
+              };
             };
             example = {daily.timeOfDay = "07:30";};
           };
@@ -777,6 +786,14 @@ in {
             };
             default = {root = {};};
             description = "Where each run works: the project folder, or a fresh worktree.";
+          };
+          webhookUrlFile = lib.mkOption {
+            type = lib.types.str;
+            readOnly = true;
+            # The server mints the token, so the URL only exists once
+            # t3code-declare has applied the task; it writes it here (0600).
+            default = "${cfg.dataDir}/declared-webhooks/${name}";
+            description = "For schedule.webhook: the file holding the task's local trigger URL. POST to it.";
           };
         };
       }));

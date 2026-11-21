@@ -93,6 +93,10 @@ from Nix as far as upstream allows:
   declaration deletes what it created (a project with threads is archived).
   It waits out a server that's still starting, a long database migration
   included, without holding up a NixOS switch.
+- `schedule.webhook = {}` runs a task on every request to its URL. The server
+  mints the token, so the URL exists only once the task is applied:
+  `t3code-declare` writes it (0600) to the task's read-only `webhookUrlFile`,
+  and a local caller POSTs to `$(cat webhookUrlFile)`.
 - `linkedEnvironments.enable` locks the beta on in the policy, and
   `linkedEnvironments.peers` links this server to other T3 Code machines with
   a pairing code file (the peer's `sharedSecretFile`). A user timer links a
