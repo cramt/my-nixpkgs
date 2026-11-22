@@ -34,7 +34,7 @@ self: {
   # Every driver t3code ships. Unknown driver envelopes are preserved verbatim
   # upstream, so a typo'd key would otherwise sit in settings.json as a
   # phantom provider with nothing complaining.
-  knownDrivers = ["codex" "claudeAgent" "cursor" "grok" "opencode"];
+  knownDrivers = ["codex" "claudeAgent" "cursor" "grok" "opencode" "pi"];
   declaredDrivers = lib.unique (lib.attrNames cfg.providers ++ lib.attrNames cfg.customModels);
 
   # Both shapes, because both are live upstream: `providers.<kind>` is the
