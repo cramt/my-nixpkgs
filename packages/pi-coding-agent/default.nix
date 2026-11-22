@@ -1,15 +1,16 @@
 {
-  stdenvNoCC,
+  buildNpmPackage,
   lib,
   fetchurl,
-  makeWrapper,
   nix-update-script,
   nodejs,
 }:
-# The pi coding agent (pi.dev). Not in nixpkgs. Since 1.x the npm tarball
-# ships dist/bundle fully bundled (no node_modules needed), so it only needs
-# node. T3 Code's Pi driver wants 0.84.3 or newer.
-stdenvNoCC.mkDerivation (finalAttrs: {
+# The pi coding agent (pi.dev). Not in nixpkgs. dist/bundle is prebuilt, but
+# it still requires jiti (to load .ts extensions), typebox and a few others
+# at runtime, so the real dependency tree goes in. The npm tarball has no
+# lockfile; package-lock.json here is generated, and nix-update regenerates it
+# on every bump. T3 Code's Pi driver wants 0.84.3 or newer.
+buildNpmPackage (finalAttrs: {
   pname = "pi-coding-agent";
   version = "1.6.0";
 
@@ -18,26 +19,20 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     hash = "sha256-hdXeQE4BnoUMkO6axtxsFiQNoSL9zgMUiVYIFkAwM2s=";
   };
 
-  nativeBuildInputs = [makeWrapper];
-
-  dontConfigure = true;
-  dontBuild = true;
-
-  # docs/ and examples/ stay: pi points the model at its own docs when asked
-  # how to write extensions.
-  installPhase = ''
-    runHook preInstall
-
-    mkdir -p $out/lib/node_modules/pi-coding-agent
-    cp -r . $out/lib/node_modules/pi-coding-agent
-
-    makeWrapper ${lib.getExe nodejs} $out/bin/pi \
-      --add-flags $out/lib/node_modules/pi-coding-agent/dist/bundle/cli.js
-
-    runHook postInstall
+  postPatch = ''
+    cp ${./package-lock.json} package-lock.json
   '';
 
-  passthru.updateScript = nix-update-script {};
+  npmDepsHash = "sha256-zZfd4KoNKUWvH42a95rU55yjn+Ony1yxjxQgJUEevYc=";
+
+  inherit nodejs;
+  dontNpmBuild = true;
+  # Its install scripts are the native optional deps (kerberos, bufferutil),
+  # none of which pi needs to run.
+  npmFlags = ["--ignore-scripts"];
+  npmInstallFlags = ["--omit=dev"];
+
+  passthru.updateScript = nix-update-script {extraArgs = ["--generate-lockfile"];};
 
   meta = {
     description = "pi, a minimal coding agent harness";
