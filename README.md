@@ -10,6 +10,7 @@ pushes builds to [cramt.cachix.org](https://cramt.cachix.org).
 | `agent-browser` | Vercel's browser-automation CLI for AI agents |
 | `agentsview` | Local session analytics for coding agents |
 | `batt` | Battery charge limiter daemon for Apple Silicon MacBooks (aarch64-darwin only) |
+| `caddy-cloudflare` | Caddy with the Cloudflare DNS provider, for ACME DNS-01 on names nothing public can reach |
 | `cli-proxy-api-panel` | CLIProxyAPI's web management panel |
 | `cockatrice` | Virtual tabletop for card games, tracking stable releases |
 | `colibri` | Streaming inference engine for MoE models (CPU by default, `rocmSupport`/`vulkanSupport` overrides) |
