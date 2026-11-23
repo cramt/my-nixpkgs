@@ -31,7 +31,15 @@ in
       cp -r ${nodeModules}/node_modules $out/lib/node_modules
       makeWrapper ${lib.getExe nodejs_24} $out/bin/simlock \
         --add-flags $out/lib/node_modules/simlock/dist/cli/main.js
+      # The daemon in the foreground, for a service manager: `simlock daemon
+      # start` forks it off and returns. Only argument is an optional
+      # `--gateway`.
+      makeWrapper ${lib.getExe nodejs_24} $out/bin/simlock-daemon \
+        --add-flags $out/lib/node_modules/simlock/dist/daemon/main.js
     '';
+    # The agent-device capability runs an `agent-device` CLI that has to
+    # speak the same protocol as this proxy; nixosModules.simlock checks it.
+    passthru.agentDeviceVersion = lock.packages."node_modules/@agent-device/proxy".version;
     doInstallCheck = true;
     installCheckPhase = ''
       HOME=$TMPDIR $out/bin/simlock --help >/dev/null

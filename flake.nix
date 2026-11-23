@@ -99,6 +99,7 @@
     });
 
     nixosModules.t3code = import ./modules/t3code.nix self;
+    nixosModules.simlock = import ./modules/simlock.nix self;
 
     # A sample host using every part of the t3code module, evaluated against
     # this nixpkgs: the build runs `t3 policy check` on the policy and renders
@@ -210,6 +211,13 @@
                 cp ${config.services.caddy.configFile} $out
               '';
             };
+      }
+      # A VM test, so x86_64 only: that's where CI has KVM.
+      // lib.optionalAttrs (system == "x86_64-linux") {
+        simlock-module = import ./tests/simlock.nix {
+          pkgs = nixpkgs.legacyPackages.${system};
+          inherit self;
+        };
       });
 
     # Bare `nix fmt` passes no paths, and alejandra then waits on stdin.

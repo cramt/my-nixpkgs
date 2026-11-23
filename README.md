@@ -18,7 +18,7 @@ pushes builds to [cramt.cachix.org](https://cramt.cachix.org).
 | `microg-re` | Morphe's microG (`app.revanced.android.gms`): Google sign-in for the patched YouTube and Music APKs |
 | `revanced-magisk-module` | j-hc's CI builds: YouTube, Music, Reddit (Morphe), Twitter (Piko), Google Photos (De-Vanced) as APKs and Magisk modules, per app in `passthru.apps` |
 | `rhystic-tracker` | MTG Arena match tracker |
-| `simlock` | Leases simulators, emulators and phones to coding agents (worker + gateway) |
+| `simlock` | Leases simulators, emulators and phones to coding agents (worker + gateway; `nixosModules.simlock` runs them) |
 | `steamlink` | Valve Steam Link client, aarch64 only |
 | `t3code`, `t3code-desktop`, `t3code-device-tools` | T3 Code server/CLI, desktop app, and the Device panel's npm tools, from upstream nightlies |
 | `t3code-declare` | Applies declared projects and scheduled tasks to a running T3 Code server (used by `nixosModules.t3code`) |
@@ -117,6 +117,49 @@ from Nix as far as upstream allows:
 
 `nix build .#checks.x86_64-linux.t3code-module` evaluates a sample host that
 uses every option, and runs `caddy validate` on the site trustTailnet makes.
+
+## NixOS module: `nixosModules.simlock`
+
+Simlock's worker and gateway as system services, for leasing Android
+emulators to agents (T3 Code's `devices.simlock.hosts` points at the
+gateway). Upstream's own setup is a `systemd --user` unit frozen to the store
+paths it saw at install time; this runs `simlock-daemon` in the foreground as
+the `simlock` user instead, with `SIMLOCK_HOME=/var/lib/simlock`.
+
+```nix
+services.simlock = {
+  worker = {
+    enable = true;
+    android.acceptLicense = true; # the default SDK won't build without it
+    gateway = {
+      url = "wss://gateway.example.ts.net:4700";
+      tokenFile = "/run/secrets/simlock-worker";
+    };
+  };
+  gateway = {
+    enable = true;
+    tokens.box = { role = "worker"; secretFile = "/run/secrets/simlock-worker"; };
+    tokens.t3 = { role = "agent"; secretFile = "/run/secrets/simlock-agent"; };
+  };
+};
+```
+
+- `config.json` is rendered from `settings` on every start, secrets read from
+  files, so a `simlock config set` lasts until the next restart.
+- The worker's Android SDK is a read-only androidenv store path with the
+  `apiLevels`' google_apis images built in, so downloads are off. Emulators
+  run headless on swiftshader, and need KVM. The SDK is unfree: allow it.
+- Gateway tokens are declared. Simlock keeps a token as the sha256 of its
+  secret in `state.db`, so each start upserts `tok_nix_<name>` rows and deletes
+  the ones no longer declared. Changing a worker token's secret unpins it, which
+  is how a worker whose state was wiped gets back in. CLI-made tokens are kept.
+- agent-device, stream and input are on at both ends: they're what T3 Code's
+  Device panel drives a lease with.
+- `sudo -u simlock simlock status` (or `--gateway worker list`) for a look.
+
+`nix build .#checks.x86_64-linux.simlock-module` boots a gateway and a worker in
+a VM and checks the declared tokens: the worker joins with its own, an agent
+token reads back as an agent, and one that's no longer declared stops working.
 
 ## Adding a package
 
