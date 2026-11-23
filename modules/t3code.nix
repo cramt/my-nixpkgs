@@ -88,16 +88,23 @@ self: {
         printf '%s' "$current" | jq --slurpfile declared ${declaredSettings} '. * $declared[0]' > ${lib.escapeShellArg "${settingsFile}.new"}
       ''
       + lib.concatStrings (lib.mapAttrsToList (path: file: ''
-          # `test -s`: a secret not rendered yet is a failed start that
-          # Restart= retries, not an empty value in settings.json.
-          test -s ${lib.escapeShellArg file}
-          jq --rawfile v ${lib.escapeShellArg file} \
-            --argjson p ${lib.escapeShellArg (builtins.toJSON (map (s:
+          # A secret not rendered yet keeps whatever settings.json had (nothing,
+          # the first time) instead of failing the start: switch-to-configuration
+          # waits on this user unit's start job, so a secret that a system unit
+          # in the same switch only writes later would hold the whole activation
+          # until deploy-rs rolled it back. t3code-secrets restarts the server
+          # once the file shows up.
+          if [ -s ${lib.escapeShellArg file} ]; then
+            jq --rawfile v ${lib.escapeShellArg file} \
+              --argjson p ${lib.escapeShellArg (builtins.toJSON (map (s:
             if builtins.match "[0-9]+" s != null
             then lib.toInt s
             else s) (lib.splitString "." path)))} \
-            'setpath($p; $v | rtrimstr("\n"))' ${lib.escapeShellArg "${settingsFile}.new"} > ${lib.escapeShellArg "${settingsFile}.tmp"}
-          mv ${lib.escapeShellArg "${settingsFile}.tmp"} ${lib.escapeShellArg "${settingsFile}.new"}
+              'setpath($p; $v | rtrimstr("\n"))' ${lib.escapeShellArg "${settingsFile}.new"} > ${lib.escapeShellArg "${settingsFile}.tmp"}
+            mv ${lib.escapeShellArg "${settingsFile}.tmp"} ${lib.escapeShellArg "${settingsFile}.new"}
+          else
+            echo ${lib.escapeShellArg "t3code: ${file} isn't there yet, leaving ${path} as it was"} >&2
+          fi
         '')
         allSecretSettings)
       + ''
@@ -962,6 +969,20 @@ in {
       # `t3` on the system PATH, for `t3 pair` over ssh without the user's
       # shell dotfiles.
       environment.systemPackages = [cfg.package];
+
+      # Restarts the server when a secretSettings file appears or changes, so
+      # one rendered after the server started (see seedSettings) still lands.
+      # A system unit: the user's own couldn't watch files in directories it
+      # can traverse but not list.
+      systemd.services.t3code-secrets = lib.mkIf (allSecretSettings != {}) {
+        description = "Restart T3 Code for a changed secret setting";
+        serviceConfig.Type = "oneshot";
+        script = "${config.systemd.package}/bin/systemctl --user --machine=${cfg.user}@ try-restart t3code.service";
+      };
+      systemd.paths.t3code-secrets = lib.mkIf (allSecretSettings != {}) {
+        wantedBy = ["multi-user.target"];
+        pathConfig.PathChanged = lib.unique (lib.attrValues allSecretSettings);
+      };
 
       systemd.user.services.t3code = {
         description = "T3 Code server";
