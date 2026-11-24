@@ -15,11 +15,11 @@
 # /opt/google/chrome/chrome, which doesn't exist on NixOS.
 stdenvNoCC.mkDerivation (finalAttrs: {
   pname = "chrome-devtools-mcp";
-  version = "1.13.0";
+  version = "1.14.0";
 
   src = fetchurl {
     url = "https://registry.npmjs.org/chrome-devtools-mcp/-/chrome-devtools-mcp-${finalAttrs.version}.tgz";
-    hash = "sha256-kVjEtKh5LLUirkb3buqpSRzgRhajrpcimhYnfgKkrqQ=";
+    hash = "sha256-bC6yvfxN0O12KAT+CGibjcIXu5NaWD4CN8nMNHzez4o=";
   };
 
   nativeBuildInputs = [makeWrapper];
