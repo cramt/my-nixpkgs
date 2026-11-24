@@ -1,0 +1,15 @@
+{
+  "version": "0.20.1",
+  "files": {
+    "x86_64-linux": "posthog-cli-x86_64-unknown-linux-musl.tar.gz",
+    "aarch64-linux": "posthog-cli-aarch64-unknown-linux-musl.tar.gz",
+    "x86_64-darwin": "posthog-cli-x86_64-apple-darwin.tar.gz",
+    "aarch64-darwin": "posthog-cli-aarch64-apple-darwin.tar.gz"
+  },
+  "hashes": {
+    "aarch64-darwin": "sha256-bkD6y8Lia6ybAzPbP3/EYzD7hwfSi7ugTStJ9vn2blA=",
+    "aarch64-linux": "sha256-9BXKtewgN57zX83dQbtORp4+iMTMczZfqemf+K/dp6I=",
+    "x86_64-darwin": "sha256-dXLf5RxCXhhQacyhJ/WZgKy3CCNw/1rM5jvzuE5CVnk=",
+    "x86_64-linux": "sha256-PhUukkp9zFGliGTYcNwsH2/IShgW83r6nu4gKSjrqbo="
+  }
+}

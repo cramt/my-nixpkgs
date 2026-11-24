@@ -18,6 +18,7 @@ pushes builds to [cramt.cachix.org](https://cramt.cachix.org).
 | `fluxer` | Fluxer chat desktop app, from the upstream AppImage (x86_64) |
 | `microg-re` | Morphe's microG (`app.revanced.android.gms`): Google sign-in for the patched YouTube and Music APKs |
 | `revanced-magisk-module` | j-hc's CI builds: YouTube, Music, Reddit (Morphe), Twitter (Piko), Google Photos (De-Vanced) as APKs and Magisk modules, per app in `passthru.apps` |
+| `posthog-cli` | PostHog's CLI (source map upload etc.), from upstream's static musl builds |
 | `rhystic-tracker` | MTG Arena match tracker |
 | `simlock` | Leases simulators, emulators and phones to coding agents (worker + gateway; `nixosModules.simlock` runs them) |
 | `steamlink` | Valve Steam Link client, aarch64 only |
