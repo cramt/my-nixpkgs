@@ -1,7 +1,7 @@
 {
   "hashes": {
-    "arm64-v8a": "sha256-Eqt6O6tQPGkd36D7m09bze9EOUFklrSAd9323/dVOiY=",
-    "armeabi-v7a": "sha256-MdqHwGJUjqImG1mhp4x/Ya6vlkZahSZatwGmXWzhEOQ="
+    "arm64-v8a": "sha256-XprtQ5dCg0puiNUFVW8PGH88L8whgPZdDnkXC5Fr5u0=",
+    "armeabi-v7a": "sha256-GzJQODgt1DozU/Mmmnc1OM2K7Dw/9rtYq26O5t5oY6k="
   },
-  "version": "7.3.3"
+  "version": "7.4.0"
 }
