@@ -20,38 +20,38 @@
     "music": {
       "apk": {
         "arm-v7a": {
-          "hash": "sha256-DCq7di/ej9rmzceV+jaKpOwTL+9M0qL+uWdymLvhbSw=",
+          "hash": "sha256-ZmUv01rR2vjL/CqSRb94lG6Nfu1dsOlKj5nKY2pA1g8=",
           "name": "music-morphe-v9.30.53-arm-v7a.apk"
         },
         "arm64-v8a": {
-          "hash": "sha256-3mlJm/nlY7XwfGyZXFdkHrpXwOPbmiz34c4jSgLZma8=",
+          "hash": "sha256-JBA7LzCCI9tyTVq5T/5zfrkfJF60rW1gVzHpTucsolg=",
           "name": "music-morphe-v9.30.53-arm64-v8a.apk"
         }
       },
       "brand": "morphe",
       "module": {
         "arm-v7a": {
-          "hash": "sha256-27NA6V5ajr19m//AIv8mBl1RcsKDynZ0TXgGPcHOUnM=",
+          "hash": "sha256-qChIko16Z7Jj7O2UnDJMmda0R3vEd6LULG7V9tku2lw=",
           "name": "music-morphe-module-v9.30.53-arm-v7a.zip"
         },
         "arm64-v8a": {
-          "hash": "sha256-UKBNG1qdeRiIOMv8NyQHFQJZVlxFsAv/WYA2cNViJf8=",
+          "hash": "sha256-58ueUMsYJDvPlbHop61OQiTb66jTBFQdqs255RMq3EU=",
           "name": "music-morphe-module-v9.30.53-arm64-v8a.zip"
         }
       },
-      "tag": "20221129",
+      "tag": "20221130",
       "version": "9.30.53"
     },
     "reddit": {
       "apk": {
         "all": {
-          "hash": "sha256-pmpWAIGBYG4JGdZJp+Zd00PNvgrCmOMGfywkq+Rh3fo=",
+          "hash": "sha256-djmbaASMtgJci915lZcETAoLSZAQk64+F6jkISdb5A8=",
           "name": "reddit-morphe-v2026.40.0-all.apk"
         }
       },
       "brand": "morphe",
       "module": {},
-      "tag": "20221129",
+      "tag": "20221130",
       "version": "2026.40.0"
     },
     "twitter": {
@@ -69,20 +69,20 @@
     "youtube": {
       "apk": {
         "all": {
-          "hash": "sha256-yKm46cCGrVJugwMwMNmvL8+HgouKKfZdXYLLN31gDtE=",
+          "hash": "sha256-BxB9mNqGEGG3uEAmiIjx3bdxkLx2iOQIcMACG5HBUIM=",
           "name": "youtube-morphe-v21.30.216-all.apk"
         }
       },
       "brand": "morphe",
       "module": {
         "all": {
-          "hash": "sha256-kSpiQ/LxhPXQnBPhdVj1OL0bnSJZgRy92xUuhW6pICQ=",
+          "hash": "sha256-6KJlrIVtdQjQlmWgOdMzGAQR1I3+ZiGRbPVV5gXECAU=",
           "name": "youtube-morphe-module-v21.30.216-all.zip"
         }
       },
-      "tag": "20221129",
+      "tag": "20221130",
       "version": "21.30.216"
     }
   },
-  "version": "20221129"
+  "version": "20221130"
 }
