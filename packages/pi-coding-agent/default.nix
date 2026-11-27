@@ -12,18 +12,18 @@
 # on every bump. T3 Code's Pi driver wants 0.84.3 or newer.
 buildNpmPackage (finalAttrs: {
   pname = "pi-coding-agent";
-  version = "1.6.1";
+  version = "1.7.0";
 
   src = fetchurl {
     url = "https://registry.npmjs.org/@earendil-works/pi-coding-agent/-/pi-coding-agent-${finalAttrs.version}.tgz";
-    hash = "sha256-47DrVLbh6Vtg7HxCBJWb1prcUfsfDaOllDC7yaWTc08=";
+    hash = "sha256-ywMf85t10EJ5fXSAM5h92cDlZzczlxcsC07WYdC/SCQ=";
   };
 
   postPatch = ''
     cp ${./package-lock.json} package-lock.json
   '';
 
-  npmDepsHash = "sha256-/rwNksFPbL4KqpTNRKeJSyXb5h6UxCI16ONhLKbVr9s=";
+  npmDepsHash = "sha256-iXhnRT5RIuRRNmmRao6IxL0KKJ3dF+cBf85aQzcrMlg=";
 
   inherit nodejs;
   dontNpmBuild = true;
